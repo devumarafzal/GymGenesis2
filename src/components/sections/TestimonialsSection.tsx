@@ -1,6 +1,9 @@
+"use client";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Quote, Star } from "lucide-react";
 import Image from "next/image";
+import { useState } from "react";
 
 const testimonials = [
   {
@@ -30,6 +33,8 @@ const testimonials = [
 ];
 
 export default function TestimonialsSection() {
+  const [currentIndex, setCurrentIndex] = useState(0);
+
   return (
     <section id="testimonials" className="py-16 md:py-24 bg-secondary">
       <div className="container mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
@@ -42,35 +47,47 @@ export default function TestimonialsSection() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((testimonial, index) => (
-            <Card key={index} className="flex flex-col shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <CardContent className="flex flex-col flex-grow p-6">
-                <Quote className="h-8 w-8 text-primary mb-4" />
-                <p className="text-muted-foreground flex-grow italic">&quot;{testimonial.quote}&quot;</p>
-                <div className="mt-6 flex items-center">
-                  <div className="relative h-12 w-12 rounded-full overflow-hidden mr-4">
-                     <Image 
-                        src={testimonial.avatarUrl} 
-                        alt={testimonial.name} 
-                        layout="fill" 
-                        objectFit="cover" 
-                        data-ai-hint={testimonial.dataAiHint} 
-                      />
-                  </div>
-                  <div>
-                    <p className="font-semibold text-foreground">{testimonial.name}</p>
-                    <p className="text-sm text-muted-foreground">{testimonial.location}</p>
-                  </div>
+        <div className="relative max-w-2xl mx-auto">
+          {/* Testimonial Card */}
+          <Card className="flex flex-col shadow-lg">
+            <CardContent className="flex flex-col flex-grow p-6">
+              <Quote className="h-8 w-8 text-primary mb-4" />
+              <p className="text-muted-foreground flex-grow italic">&quot;{testimonials[currentIndex].quote}&quot;</p>
+              <div className="mt-6 flex items-center">
+                <div className="relative h-12 w-12 rounded-full overflow-hidden mr-4">
+                  <Image
+                    src={testimonials[currentIndex].avatarUrl}
+                    alt={testimonials[currentIndex].name}
+                    layout="fill"
+                    objectFit="cover"
+                    data-ai-hint={testimonials[currentIndex].dataAiHint}
+                  />
                 </div>
-                <div className="mt-4 flex">
-                  {Array(5).fill(0).map((_, i) => (
-                    <Star key={i} className={`h-5 w-5 ${i < testimonial.rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
-                  ))}
+                <div>
+                  <p className="font-semibold text-foreground">{testimonials[currentIndex].name}</p>
+                  <p className="text-sm text-muted-foreground">{testimonials[currentIndex].location}</p>
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              </div>
+              <div className="mt-4 flex">
+                {Array(5).fill(0).map((_, i) => (
+                  <Star key={i} className={`h-5 w-5 ${i < testimonials[currentIndex].rating ? 'text-yellow-400 fill-current' : 'text-gray-300'}`} />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Navigation Dots */}
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
+            {testimonials.map((_, index) => (
+              <button
+                key={index}
+                className={`h-2 w-2 rounded-full ${currentIndex === index ? 'bg-primary' : 'bg-muted-foreground'}`}
+                onClick={() => setCurrentIndex(index)}
+                aria-label={`Go to testimonial ${index + 1}`}
+              >
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </section>
