@@ -1,9 +1,11 @@
+
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Quote, Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Quote, Star, ChevronLeft, ChevronRight } from "lucide-react";
 import Image from "next/image";
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 
 const testimonials = [
   {
@@ -34,6 +36,29 @@ const testimonials = [
 
 export default function TestimonialsSection() {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  const handlePrev = useCallback(() => {
+    setCurrentIndex((prevIndex) => (prevIndex - 1 + testimonials.length) % testimonials.length);
+  }, [testimonials.length]);
+
+  const handleNext = useCallback(() => {
+    setCurrentIndex((prevIndex) => (prevIndex + 1) % testimonials.length);
+  }, [testimonials.length]);
+
+  useEffect(() => {
+    if (isHovered || testimonials.length <= 1) return;
+
+    const autoSlide = setInterval(() => {
+      handleNext();
+    }, 5000); // Slide every 5 seconds
+
+    return () => clearInterval(autoSlide);
+  }, [handleNext, isHovered, testimonials.length]);
+
+  if (testimonials.length === 0) {
+    return null; // Or some placeholder if no testimonials
+  }
 
   return (
     <section id="testimonials" className="py-16 md:py-24 bg-secondary">
@@ -47,9 +72,24 @@ export default function TestimonialsSection() {
           </p>
         </div>
 
-        <div className="relative max-w-2xl mx-auto">
-          {/* Testimonial Card */}
-          <Card className="flex flex-col shadow-lg">
+        <div 
+          className="relative max-w-2xl mx-auto"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {testimonials.length > 1 && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handlePrev}
+              className="absolute top-1/2 left-0 transform -translate-y-1/2 sm:-translate-x-10 -translate-x-2 z-10 rounded-full bg-card hover:bg-primary/10 focus-visible:ring-primary"
+              aria-label="Previous testimonial"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+          )}
+          
+          <Card className="flex flex-col shadow-lg min-h-[320px]"> {/* Added min-height for consistency */}
             <CardContent className="flex flex-col flex-grow p-6">
               <Quote className="h-8 w-8 text-primary mb-4" />
               <p className="text-muted-foreground flex-grow italic">&quot;{testimonials[currentIndex].quote}&quot;</p>
@@ -76,18 +116,31 @@ export default function TestimonialsSection() {
             </CardContent>
           </Card>
 
-          {/* Navigation Dots */}
-          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-            {testimonials.map((_, index) => (
-              <button
-                key={index}
-                className={`h-2 w-2 rounded-full ${currentIndex === index ? 'bg-primary' : 'bg-muted-foreground'}`}
-                onClick={() => setCurrentIndex(index)}
-                aria-label={`Go to testimonial ${index + 1}`}
-              >
-              </button>
-            ))}
-          </div>
+          {testimonials.length > 1 && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleNext}
+              className="absolute top-1/2 right-0 transform -translate-y-1/2 sm:translate-x-10 translate-x-2 z-10 rounded-full bg-card hover:bg-primary/10 focus-visible:ring-primary"
+              aria-label="Next testimonial"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
+          )}
+
+          {testimonials.length > 1 && (
+            <div className="absolute -bottom-10 left-1/2 transform -translate-x-1/2 flex space-x-2">
+              {testimonials.map((_, index) => (
+                <button
+                  key={index}
+                  className={`h-2.5 w-2.5 rounded-full transition-colors duration-300 ${currentIndex === index ? 'bg-primary scale-125' : 'bg-muted-foreground hover:bg-primary/70'}`}
+                  onClick={() => setCurrentIndex(index)}
+                  aria-label={`Go to testimonial ${index + 1}`}
+                >
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </section>
