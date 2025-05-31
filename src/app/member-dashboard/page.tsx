@@ -176,18 +176,7 @@ export default function MemberDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* Placeholder for Membership Details Card */}
-            <Card className="shadow-lg mt-6">
-              <CardHeader>
-                <CardTitle className="font-headline text-xl flex items-center">
-                  <Award className="mr-2 h-6 w-6 text-accent" /> Membership Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Check your current membership plan and status.</p>
-                <Button disabled className="w-full">View Membership (Coming Soon)</Button>
-              </CardContent>
-            </Card>
+            {/* Membership Details Card Removed */}
           </div>
         </div>
       </main>
