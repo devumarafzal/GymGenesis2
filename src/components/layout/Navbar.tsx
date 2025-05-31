@@ -5,14 +5,14 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Zap, Shield, User, LogOut, CalendarDays } from "lucide-react";
+import { Menu, Zap, Shield, User, LogOut, CalendarDays, Phone } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth"; 
 
 const navLinks = [
   { href: "/#services", label: "Services" },
   { href: "/schedule", label: "Schedule" },
   { href: "/#testimonials", label: "Testimonials" },
-  { href: "/#contact", label: "Contact" },
+  { href: "/contact", label: "Contact" },
 ];
 
 export default function Navbar() {
@@ -42,7 +42,7 @@ export default function Navbar() {
         <nav className="hidden items-center space-x-6 md:flex">
           {navLinks.map((link) => (
             <Link
-              key={link.href}
+              key={link.label} // Use label as key if href is not unique for sections
               href={link.href}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >
@@ -95,12 +95,13 @@ export default function Navbar() {
                 </Link>
                 {navLinks.map((link) => (
                   <Link
-                    key={link.href}
+                    key={link.label}
                     href={link.href}
-                    className="text-lg font-medium text-foreground transition-colors hover:text-primary"
+                    className="text-lg font-medium text-foreground transition-colors hover:text-primary flex items-center"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     {link.label === 'Schedule' && <CalendarDays className="inline-block mr-2 h-5 w-5" /> }
+                    {link.label === 'Contact' && <Phone className="inline-block mr-2 h-5 w-5" /> }
                     {link.label}
                   </Link>
                 ))}
