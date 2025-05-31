@@ -14,8 +14,8 @@ import { PlusCircle, Trash2, Edit3, Users, BookOpen, LogOut, Clock, Users2, Cale
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { services as serviceDefinitions } from '@/components/sections/ServicesSection';
-import type { SeedTrainer } from '@/components/sections/ServicesSection'; // Import SeedTrainer type
-import { initialSeedTrainers } from '@/components/sections/ServicesSection'; // Import initial seed trainers
+import type { SeedTrainer } from '@/components/sections/ServicesSection';
+import { initialSeedTrainers } from '@/components/sections/ServicesSection';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,6 +39,7 @@ export interface GymClass {
   startTime: string; // e.g., "09:00"
   endTime: string;   // e.g., "10:00"
   capacity: number;
+  bookedUserIds: string[]; // Array of user IDs who booked this class
 }
 
 export default function AdminPage() {
@@ -70,12 +71,11 @@ export default function AdminPage() {
 
 
   useEffect(() => {
-    if (role === 'admin') {
+    if (typeof window !== 'undefined' && role === 'admin') {
       const storedTrainers = localStorage.getItem('adminTrainers');
       if (storedTrainers) {
         setTrainers(JSON.parse(storedTrainers));
       } else {
-        // Seed trainers from ServicesSection if localStorage is empty
         const trainersToSeed = initialSeedTrainers.map((seed: SeedTrainer) => ({
           id: seed.id,
           name: seed.name,
@@ -87,19 +87,24 @@ export default function AdminPage() {
 
       const storedClasses = localStorage.getItem('adminClasses');
       if (storedClasses) {
-        setClasses(JSON.parse(storedClasses));
+        // Ensure existing classes have the bookedUserIds field
+        const parsedClasses = JSON.parse(storedClasses).map((cls: any) => ({
+          ...cls,
+          bookedUserIds: cls.bookedUserIds || [] 
+        }));
+        setClasses(parsedClasses);
       }
     }
   }, [role]);
 
   useEffect(() => {
-    if (role === 'admin' && trainers.length > 0) { // Don't save empty initial array if not seeded yet
+    if (typeof window !== 'undefined' && role === 'admin' && trainers.length > 0) {
         localStorage.setItem('adminTrainers', JSON.stringify(trainers));
     }
   }, [trainers, role]);
 
   useEffect(() => {
-    if (role === 'admin' && classes.length > 0) { // Don't save empty initial array
+    if (typeof window !== 'undefined' && role === 'admin') { // Allow saving empty classes array after initial load
         localStorage.setItem('adminClasses', JSON.stringify(classes));
     }
   }, [classes, role]);
@@ -136,10 +141,10 @@ export default function AdminPage() {
   };
 
   const handleRemoveTrainer = (id: string) => {
+    // Before removing trainer, unassign them from classes but keep the classes
+    setClasses(prevClasses => prevClasses.map(c => c.trainerId === id ? { ...c, trainerId: '' } : c));
     setTrainers(trainers.filter(trainer => trainer.id !== id));
-    // Also remove this trainer from any classes they were assigned to
-    setClasses(classes.map(c => c.trainerId === id ? {...c, trainerId: ''} : c)); // Or filter out classes, or set trainer to unassigned
-    toast({ title: "Success", description: "Trainer removed.", variant: "destructive"});
+    toast({ title: "Success", description: "Trainer removed and unassigned from classes.", variant: "destructive"});
   };
 
   const resetClassForm = () => {
@@ -162,7 +167,13 @@ export default function AdminPage() {
         return;
     }
 
-    const classData: Omit<GymClass, 'id'> = {
+    // Validate start and end times
+    if (classStartTime >= classEndTime) {
+        toast({ title: "Error", description: "End time must be after start time.", variant: "destructive"});
+        return;
+    }
+
+    const classData: Omit<GymClass, 'id' | 'bookedUserIds'> = {
         serviceTitle: selectedService,
         trainerId: selectedTrainer,
         dayOfWeek: classDayOfWeek,
@@ -172,12 +183,16 @@ export default function AdminPage() {
     };
 
     if (editingClass) {
-        setClasses(classes.map(c => c.id === editingClass.id ? { ...c, ...classData } : c));
+        // When editing, preserve existing bookings unless capacity is drastically reduced.
+        // For simplicity, we don't remove bookings if capacity shrinks below current bookings here.
+        // This should be handled by more complex logic or UI warnings in a real app.
+        setClasses(classes.map(c => c.id === editingClass.id ? { ...c, ...classData, capacity: Number(classCapacity) } : c));
         toast({ title: "Success", description: "Class updated successfully."});
     } else {
         const newClass: GymClass = {
             id: Date.now().toString(),
-            ...classData
+            ...classData,
+            bookedUserIds: [] // Initialize with no bookings
         };
         setClasses([...classes, newClass]);
         toast({ title: "Success", description: "Class added successfully."});
@@ -387,7 +402,7 @@ export default function AdminPage() {
                           <TableHead>Trainer</TableHead>
                           <TableHead>Day</TableHead>
                           <TableHead>Time</TableHead>
-                          <TableHead>Capacity</TableHead>
+                          <TableHead>Booked/Capacity</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -398,7 +413,7 @@ export default function AdminPage() {
                             <TableCell>{getTrainerNameById(gymClass.trainerId)}</TableCell>
                             <TableCell>{gymClass.dayOfWeek}</TableCell>
                             <TableCell>{gymClass.startTime} - {gymClass.endTime}</TableCell>
-                            <TableCell>{gymClass.capacity}</TableCell>
+                            <TableCell>{gymClass.bookedUserIds.length} / {gymClass.capacity}</TableCell>
                             <TableCell className="text-right space-x-2">
                                <Button variant="outline" size="icon" onClick={() => handleEditClass(gymClass)} className="hover:text-primary">
                                 <Edit3 className="h-4 w-4" />
@@ -415,7 +430,7 @@ export default function AdminPage() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete the class: {gymClass.serviceTitle} on {gymClass.dayOfWeek} at {gymClass.startTime}.
+                                      This action cannot be undone. This will permanently delete the class: {gymClass.serviceTitle} on {gymClass.dayOfWeek} at {gymClass.startTime}. All existing bookings for this class will also be removed.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
@@ -445,3 +460,6 @@ export default function AdminPage() {
     </div>
   );
 }
+
+
+    
