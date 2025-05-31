@@ -68,9 +68,9 @@ export default function JoinPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <main className="flex-grow py-12 md:py-20 bg-background">
+      <main className="flex-grow py-2 md:py-12 bg-background">
         <div className="container mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
+          <div className="mb-4">
             <Button variant="outline" asChild>
                 <Link href="/" className="flex items-center">
                     <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home

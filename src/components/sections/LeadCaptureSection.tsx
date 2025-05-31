@@ -13,13 +13,13 @@ export default function LeadCaptureSection() {
               Take the Next Step <span className="text-primary">Today!</span>
             </h2>
             <p className="text-lg text-muted-foreground">
-              Your fitness journey is unique, and we&apos;re here to support you every step of the way. Explore our membership options and find the perfect fit for your goals.
+              Your fitness journey is unique, and we&apos;re here to support you every step of the way. Create an account to explore our membership options and find the perfect fit for your goals.
             </p>
             <p className="text-lg text-muted-foreground">
-              Click below to learn more and send us an inquiry. We&apos;ll get back to you promptly to discuss how GymGenesis can be your partner in health.
+              Click below to sign up. We&apos;re excited to welcome you to GymGenesis and be your partner in health.
             </p>
             <Button asChild size="lg" className="mt-6 bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg transition-transform hover:scale-105">
-              <Link href="/join">Start Your Journey</Link>
+              <Link href="/signup">Sign Up to Start</Link>
             </Button>
           </div>
           <div className="md:order-1 relative h-80 w-full md:h-[400px] rounded-lg overflow-hidden shadow-xl">
