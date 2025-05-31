@@ -6,7 +6,7 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { CalendarDays, Clock, Users, Zap, User } from 'lucide-react';
+import { CalendarDays, Clock, Users, Zap, User, Users2 } from 'lucide-react'; // Added Users2 here
 import { useToast } from "@/hooks/use-toast";
 import type { GymClass, Trainer, DayOfWeek } from '@/app/admin/page'; // Import types from admin page
 
