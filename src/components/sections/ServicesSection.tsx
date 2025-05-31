@@ -1,8 +1,10 @@
+
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dumbbell, Zap, Users, ShieldCheck, Activity, Heart } from "lucide-react";
 
-const services = [
+// Exporting services array to be used by admin page for class creation
+export const services = [
   {
     icon: Dumbbell,
     title: "Weight Training",
@@ -35,7 +37,11 @@ const services = [
   },
 ];
 
-const trainers = [
+// Trainers are now managed via the admin page.
+// This section can be updated later to display trainers dynamically if needed.
+// For now, we keep the static display as a placeholder or remove it if admin-managed trainers
+// are intended to be displayed here directly (which would require fetching logic).
+const trainers_static_placeholder = [
   {
     name: "Alex Morgan",
     specialty: "Strength & Conditioning",
@@ -62,10 +68,10 @@ export default function ServicesSection() {
       <div className="container mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h2 className="font-headline text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-            Our Premier <span className="text-primary">Services</span>
+            Our Premier <span className="text-primary">Services & Classes</span>
           </h2>
           <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-            Discover a variety of ways to achieve your fitness goals at GymGenesis.
+            Discover a variety of ways to achieve your fitness goals at GymGenesis. Classes and trainers can be managed in the admin section.
           </p>
         </div>
 
@@ -85,17 +91,18 @@ export default function ServicesSection() {
           ))}
         </div>
 
+        {/* This section can be dynamically populated from admin-managed trainers in a future step */}
         <div className="mt-20 text-center">
           <h3 className="font-headline text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Meet Our Expert <span className="text-primary">Trainers</span>
           </h3>
           <p className="mt-3 max-w-xl mx-auto text-lg text-muted-foreground">
-            Our certified trainers are here to guide and motivate you.
+            Our certified trainers are here to guide and motivate you. (Manage trainers in Admin section)
           </p>
         </div>
 
         <div className="mt-12 grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
-          {trainers.map((trainer) => (
+          {trainers_static_placeholder.map((trainer) => (
             <Card key={trainer.name} className="text-center overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="relative h-64 w-full">
                 <Image
@@ -117,3 +124,4 @@ export default function ServicesSection() {
     </section>
   );
 }
+

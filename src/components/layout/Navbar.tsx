@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Zap } from "lucide-react";
+import { Menu, Zap, Shield } from "lucide-react";
 
 const navLinks = [
   { href: "/#services", label: "Services" },
@@ -36,6 +36,9 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+          <Link href="/admin" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary flex items-center">
+            <Shield className="mr-1 h-4 w-4" /> Admin
+          </Link>
           <Button asChild variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
             <Link href="/signup">Sign Up</Link>
           </Button>
@@ -67,6 +70,13 @@ export default function Navbar() {
                     {link.label}
                   </Link>
                 ))}
+                <Link 
+                  href="/admin" 
+                  className="text-lg font-medium text-foreground transition-colors hover:text-primary flex items-center"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  <Shield className="mr-2 h-5 w-5" /> Admin
+                </Link>
                 <Button asChild variant="default" size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground mt-4" onClick={() => setIsMobileMenuOpen(false)}>
                   <Link href="/signup">Sign Up</Link>
                 </Button>
