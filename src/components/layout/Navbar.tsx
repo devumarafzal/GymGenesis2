@@ -54,15 +54,16 @@ export default function Navbar() {
             </Link>
           )}
 
+          {!isLoading && currentUser && role !== 'admin' && (
+            <Link href={getProfileLink()} className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary flex items-center">
+              <User className="mr-1 h-4 w-4" /> Profile
+            </Link>
+          )}
+
           {!isLoading && currentUser ? (
-            <>
-              <Link href={getProfileLink()} className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary flex items-center">
-                <User className="mr-1 h-4 w-4" /> Profile
-              </Link>
-              <Button variant="outline" size="sm" onClick={() => signOutAndRedirect('/signin')}>
-                <LogOut className="mr-1 h-4 w-4" /> Sign Out
-              </Button>
-            </>
+            <Button variant="outline" size="sm" onClick={() => signOutAndRedirect('/signin')}>
+              <LogOut className="mr-1 h-4 w-4" /> Sign Out
+            </Button>
           ) : !isLoading && (
             <>
               <Button asChild variant="ghost" size="sm">
@@ -113,20 +114,21 @@ export default function Navbar() {
                     <Shield className="mr-2 h-5 w-5" /> Admin
                   </Link>
                 )}
+                
+                {!isLoading && currentUser && role !== 'admin' && (
+                  <Link 
+                    href={getProfileLink()}
+                    className="text-lg font-medium text-foreground transition-colors hover:text-primary flex items-center"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <User className="mr-2 h-5 w-5" /> Profile
+                  </Link>
+                )}
 
                 {!isLoading && currentUser ? (
-                  <>
-                    <Link 
-                      href={getProfileLink()}
-                      className="text-lg font-medium text-foreground transition-colors hover:text-primary flex items-center"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      <User className="mr-2 h-5 w-5" /> Profile
-                    </Link>
-                    <Button variant="outline" size="lg" className="mt-4" onClick={() => { signOutAndRedirect('/signin'); setIsMobileMenuOpen(false); }}>
-                      <LogOut className="mr-2 h-5 w-5" /> Sign Out
-                    </Button>
-                  </>
+                  <Button variant="outline" size="lg" className="mt-4" onClick={() => { signOutAndRedirect('/signin'); setIsMobileMenuOpen(false); }}>
+                    <LogOut className="mr-2 h-5 w-5" /> Sign Out
+                  </Button>
                 ) : !isLoading && (
                   <>
                     <Button asChild variant="ghost" size="lg" className="text-lg" onClick={() => setIsMobileMenuOpen(false)}>
