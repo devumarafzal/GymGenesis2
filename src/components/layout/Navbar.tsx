@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Zap, Shield, User, LogOut } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth"; // Import useAuth
+import { Menu, Zap, Shield, User, LogOut, CalendarDays } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth"; 
 
 const navLinks = [
   { href: "/#services", label: "Services" },
+  { href: "/schedule", label: "Schedule" },
   { href: "/#testimonials", label: "Testimonials" },
   { href: "/#contact", label: "Contact" },
 ];
@@ -99,6 +100,7 @@ export default function Navbar() {
                     className="text-lg font-medium text-foreground transition-colors hover:text-primary"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
+                    {link.label === 'Schedule' && <CalendarDays className="inline-block mr-2 h-5 w-5" /> }
                     {link.label}
                   </Link>
                 ))}
