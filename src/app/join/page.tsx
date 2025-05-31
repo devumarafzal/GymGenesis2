@@ -1,7 +1,6 @@
 
 "use client";
 
-import type { Metadata } from 'next';
 import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -24,14 +23,9 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { ArrowLeft } from "lucide-react";
 
-// It's generally better to export metadata from server components or layout files.
-// For a client component page like this, metadata might be better handled in a layout segment if more complex.
-// However, Next.js allows exporting metadata from page.tsx even if it's "use client" for simplicity in some cases.
-// If issues arise, consider a route group layout for metadata.
-export const metadata: Metadata = {
-  title: 'Join GymGenesis | Membership Inquiry',
-  description: 'Start your fitness transformation with GymGenesis. Fill out our membership inquiry form today!',
-};
+// Metadata should be defined in a Server Component, typically a layout.tsx file.
+// Since this page is a Client Component (due to useForm, useToast),
+// metadata cannot be exported directly from here.
 
 const formSchema = z.object({
   name: z.string().min(2, {
