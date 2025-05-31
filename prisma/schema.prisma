@@ -1,15 +1,73 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
 
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+enum Role {
+  MEMBER
+  TRAINER
+  ADMIN
+}
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(MEMBER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[]
+}
+
+model Trainer {
+  id        String     @id @default(cuid())
+  name      String
+  specialty String
+  imageUrl  String?
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  classes   GymClass[] // A trainer can be assigned to multiple classes
+}
+
+model GymClass {
+  id            String    @id @default(cuid())
+  serviceTitle  String
+  trainerId     String
+  trainer       Trainer   @relation(fields: [trainerId], references: [id])
+  dayOfWeek     DayOfWeek
+  startTime     String // Format "HH:MM"
+  endTime       String // Format "HH:MM"
+  capacity      Int
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  bookings      Booking[]
+}
+
+model Booking {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classId   String
+  gymClass  GymClass @relation(fields: [classId], references: [id], onDelete: Cascade)
+  bookedAt  DateTime @default(now())
+
+  @@unique([userId, classId], name: "UserClassBookingUniqueConstraint")
 }
