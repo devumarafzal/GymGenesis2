@@ -1,10 +1,17 @@
 
 import Image from "next/image";
+import type { StaticImageData } from "next/image";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Dumbbell, Zap, Users, ShieldCheck, Activity, Heart } from "lucide-react";
+import { Dumbbell, Zap, Users, ShieldCheck, Activity, Heart, type LucideIcon } from "lucide-react";
+
+interface Service {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}
 
 // Exporting services array to be used by admin page for class creation
-export const services = [
+export const services: Service[] = [
   {
     icon: Dumbbell,
     title: "Weight Training",
@@ -38,23 +45,32 @@ export const services = [
 ];
 
 // Trainers are now managed via the admin page.
-// This section can be updated later to display trainers dynamically if needed.
-// For now, we keep the static display as a placeholder or remove it if admin-managed trainers
-// are intended to be displayed here directly (which would require fetching logic).
-const trainers_static_placeholder = [
+// This section displays static placeholders which also serve as seed data for the admin page.
+export interface SeedTrainer {
+  id: string;
+  name: string;
+  specialty: string;
+  imageUrl: string;
+  dataAiHint: string;
+}
+
+export const initialSeedTrainers: SeedTrainer[] = [
   {
+    id: 'trainer-seed-1',
     name: "Alex Morgan",
     specialty: "Strength & Conditioning",
     imageUrl: "https://placehold.co/300x300.png",
     dataAiHint: "fitness trainer portrait"
   },
   {
+    id: 'trainer-seed-2',
     name: "Jessie Chen",
     specialty: "Yoga & Flexibility",
     imageUrl: "https://placehold.co/300x300.png",
     dataAiHint: "yoga instructor"
   },
   {
+    id: 'trainer-seed-3',
     name: "Mike Davis",
     specialty: "HIIT & Endurance",
     imageUrl: "https://placehold.co/300x300.png",
@@ -102,7 +118,7 @@ export default function ServicesSection() {
         </div>
 
         <div className="mt-12 grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
-          {trainers_static_placeholder.map((trainer) => (
+          {initialSeedTrainers.map((trainer) => (
             <Card key={trainer.name} className="text-center overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
               <div className="relative h-64 w-full">
                 <Image
@@ -124,4 +140,3 @@ export default function ServicesSection() {
     </section>
   );
 }
-

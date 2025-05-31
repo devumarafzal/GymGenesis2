@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { PlusCircle, Trash2, Edit3, Users, BookOpen } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { services as serviceDefinitions } from '@/components/sections/ServicesSection'; // Import service definitions
+import { services as serviceDefinitions, initialSeedTrainers } from '@/components/sections/ServicesSection'; // Import service definitions and initial trainers
 
 // Define types for Admin data
 export interface Trainer {
@@ -28,12 +28,6 @@ export interface GymClass {
   trainerId: string;
   schedule: string;
 }
-
-const initialTrainers: Trainer[] = [
-    { id: '1', name: 'Alex Morgan', specialty: 'Strength & Conditioning', imageUrl: 'https://placehold.co/300x300.png' },
-    { id: '2', name: 'Jessie Chen', specialty: 'Yoga & Flexibility', imageUrl: 'https://placehold.co/300x300.png' },
-    { id: '3', name: 'Mike Davis', specialty: 'HIIT & Endurance', imageUrl: 'https://placehold.co/300x300.png' },
-];
 
 export default function AdminPage() {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -51,13 +45,20 @@ export default function AdminPage() {
   const [classSchedule, setClassSchedule] = useState('');
   const [editingClass, setEditingClass] = useState<GymClass | null>(null);
 
-  // Load initial data from localStorage or use defaults
+  // Load initial data from localStorage or use defaults from ServicesSection
   useEffect(() => {
     const storedTrainers = localStorage.getItem('adminTrainers');
     if (storedTrainers) {
       setTrainers(JSON.parse(storedTrainers));
     } else {
-      setTrainers(initialTrainers); // Seed with initial trainers if none in localStorage
+      // Seed with initial trainers from ServicesSection if none in localStorage
+      const trainersToSeed = initialSeedTrainers.map(seed => ({
+        id: seed.id,
+        name: seed.name,
+        specialty: seed.specialty,
+        imageUrl: seed.imageUrl,
+      }));
+      setTrainers(trainersToSeed);
     }
 
     const storedClasses = localStorage.getItem('adminClasses');
