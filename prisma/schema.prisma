@@ -1,5 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 datasource db {
   provider = "mysql"
@@ -8,6 +6,55 @@ datasource db {
 
 generator client {
   provider = "prisma-client-js"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(MEMBER)
+  bookings      Booking[]
+  trainerProfile Trainer? // User can have a trainer profile (one-to-one)
+
+  @@index([email])
+}
+
+model Trainer {
+  id          String     @id @default(cuid())
+  name        String     // Added: Publicly displayed name for the trainer
+  specialty   String
+  imageUrl    String?
+  userId      String     @unique // Link to the User model
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade) // If User is deleted, Trainer profile is also deleted
+  classes     GymClass[]
+}
+
+model GymClass {
+  id           String    @id @default(cuid())
+  serviceTitle String
+  dayOfWeek    DayOfWeek
+  startTime    String // Format "HH:mm"
+  endTime      String // Format "HH:mm"
+  capacity     Int
+  trainerId    String
+  trainer      Trainer   @relation(fields: [trainerId], references: [id], onDelete: Restrict) // Prevent deleting trainer if they have classes
+  bookings     Booking[]
+
+  @@index([trainerId])
+}
+
+model Booking {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade) // If User is deleted, their bookings are also deleted
+  classId     String
+  class       GymClass @relation(fields: [classId], references: [id], onDelete: Cascade) // If Class is deleted, bookings for it are also deleted
+  bookingTime DateTime @default(now())
+
+  @@unique([userId, classId]) // A user can only book a specific class once
+  @@index([userId])
+  @@index([classId])
 }
 
 enum Role {
@@ -24,50 +71,4 @@ enum DayOfWeek {
   FRIDAY
   SATURDAY
   SUNDAY
-}
-
-model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  passwordHash  String
-  role          Role      @default(MEMBER)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  bookings      Booking[]
-}
-
-model Trainer {
-  id        String     @id @default(cuid())
-  name      String
-  specialty String
-  imageUrl  String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  classes   GymClass[] // A trainer can be assigned to multiple classes
-}
-
-model GymClass {
-  id            String    @id @default(cuid())
-  serviceTitle  String
-  trainerId     String
-  trainer       Trainer   @relation(fields: [trainerId], references: [id])
-  dayOfWeek     DayOfWeek
-  startTime     String // Format "HH:MM"
-  endTime       String // Format "HH:MM"
-  capacity      Int
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  bookings      Booking[]
-}
-
-model Booking {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  classId   String
-  gymClass  GymClass @relation(fields: [classId], references: [id], onDelete: Cascade)
-  bookedAt  DateTime @default(now())
-
-  @@unique([userId, classId], name: "UserClassBookingUniqueConstraint")
 }
