@@ -14,36 +14,55 @@ import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 const daysOrder: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function SchedulePage() {
-  const [allClasses, setAllClasses] = useState<GymClass[]>([]); // Renamed to avoid conflict
+  const [allClasses, setAllClasses] = useState<GymClass[]>([]);
   const [trainers, setTrainers] = useState<Trainer[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingData, setIsLoadingData] = useState(true); // Renamed to avoid conflict with other isLoading
   const { toast } = useToast();
   const { currentUser, isAuthenticated } = useAuth();
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const storedClasses = localStorage.getItem('adminClasses');
-      if (storedClasses) {
-        const parsedClasses = JSON.parse(storedClasses).map((cls: any) => ({
-          ...cls,
-          bookedUserIds: cls.bookedUserIds || [] 
-        }));
-        setAllClasses(parsedClasses);
-      }
-      const storedTrainers = localStorage.getItem('adminTrainers');
-      if (storedTrainers) {
-        setTrainers(JSON.parse(storedTrainers));
-      }
-      setIsLoading(false);
-    }
-  }, []);
+    const loadDataFromStorage = () => {
+      if (typeof window !== 'undefined') {
+        // setIsLoadingData(true); // You might enable this if reloads feel slow, for visual feedback
 
-  // Effect to save classes back to localStorage when they change
+        const storedClassesData = localStorage.getItem('adminClasses');
+        const currentClasses: GymClass[] = storedClassesData ? JSON.parse(storedClassesData).map((cls: any) => ({
+          ...cls,
+          bookedUserIds: cls.bookedUserIds || []
+        })) : [];
+        setAllClasses(currentClasses);
+
+        const storedTrainersData = localStorage.getItem('adminTrainers');
+        const currentTrainers: Trainer[] = storedTrainersData ? JSON.parse(storedTrainersData) : [];
+        setTrainers(currentTrainers);
+
+        setIsLoadingData(false);
+      }
+    };
+
+    loadDataFromStorage(); // Initial load
+
+    const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+            loadDataFromStorage();
+        }
+    };
+
+    window.addEventListener('focus', loadDataFromStorage);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', loadDataFromStorage);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []); // Empty dependency array ensures this effect runs once for setup
+
+  // Effect to save classes back to localStorage when they change (e.g., after a booking on this page)
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isLoading) { // Save only after initial load and if not loading
+    if (typeof window !== 'undefined' && !isLoadingData) {
       localStorage.setItem('adminClasses', JSON.stringify(allClasses));
     }
-  }, [allClasses, isLoading]);
+  }, [allClasses, isLoadingData]);
 
 
   const getTrainerNameById = (trainerId: string): string => {
@@ -61,7 +80,15 @@ export default function SchedulePage() {
       return;
     }
 
-    if (gymClassToBook.bookedUserIds.includes(currentUser.id)) {
+    // Re-check the class from the current state to ensure it's the latest version
+    const freshClassToBook = allClasses.find(c => c.id === gymClassToBook.id);
+    if (!freshClassToBook) {
+        toast({ title: "Error", description: "Class not found. It might have been removed.", variant: "destructive"});
+        return;
+    }
+
+
+    if (freshClassToBook.bookedUserIds.includes(currentUser.id)) {
       toast({
         title: "Already Booked",
         description: "You have already booked this class.",
@@ -70,7 +97,7 @@ export default function SchedulePage() {
       return;
     }
 
-    if (gymClassToBook.bookedUserIds.length >= gymClassToBook.capacity) {
+    if (freshClassToBook.bookedUserIds.length >= freshClassToBook.capacity) {
       toast({
         title: "Class Full",
         description: "Sorry, this class is already full.",
@@ -82,7 +109,7 @@ export default function SchedulePage() {
     // Proceed with booking
     setAllClasses(prevClasses => 
       prevClasses.map(cls => 
-        cls.id === gymClassToBook.id 
+        cls.id === freshClassToBook.id 
           ? { ...cls, bookedUserIds: [...cls.bookedUserIds, currentUser.id] }
           : cls
       )
@@ -90,7 +117,7 @@ export default function SchedulePage() {
 
     toast({
       title: "Booking Successful!",
-      description: `You've booked ${gymClassToBook.serviceTitle} with ${getTrainerNameById(gymClassToBook.trainerId)}.`,
+      description: `You've booked ${freshClassToBook.serviceTitle} with ${getTrainerNameById(freshClassToBook.trainerId)}.`,
       variant: "default"
     });
   };
@@ -112,7 +139,7 @@ export default function SchedulePage() {
 
   const groupedClasses = groupClassesByDay(allClasses);
 
-  if (isLoading) {
+  if (isLoadingData) {
     return (
       <div className="flex flex-col min-h-screen">
         <Navbar />
@@ -159,7 +186,7 @@ export default function SchedulePage() {
                     } else if (isBookedByCurrentUser) {
                         buttonText = "Booked";
                         buttonDisabled = true;
-                    } else if (isFull) {
+                    } else if (isFull) { // Check if full only if not already booked by user
                         buttonText = "Class Full";
                         buttonDisabled = true;
                     }
@@ -206,7 +233,7 @@ export default function SchedulePage() {
               </div>
             )
           ))}
-           {allClasses.length === 0 && !isLoading && (
+           {allClasses.length === 0 && !isLoadingData && (
              <p className="text-center text-muted-foreground text-lg">No classes are currently scheduled. Please check back later or contact administration.</p>
            )}
         </div>
@@ -215,6 +242,3 @@ export default function SchedulePage() {
     </div>
   );
 }
-
-
-    
