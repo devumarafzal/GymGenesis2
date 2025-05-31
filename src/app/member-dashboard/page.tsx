@@ -89,15 +89,16 @@ export default function MemberDashboardPage() {
         return cls;
       });
       
-      // Update myBookings state immediately for UI responsiveness
       setMyBookings(prevMyBookings => prevMyBookings.filter(booking => booking.id !== classIdToCancel));
       
-      toast({
-        title: "Booking Cancelled",
-        description: "Your booking has been successfully cancelled.",
-      });
+      setTimeout(() => {
+        toast({
+          title: "Booking Cancelled",
+          description: "Your booking has been successfully cancelled.",
+        });
+      }, 0);
       
-      return updatedClasses; // This will trigger the useEffect to save to localStorage
+      return updatedClasses; 
     });
   };
 
@@ -187,3 +188,4 @@ export default function MemberDashboardPage() {
 
 
     
+
