@@ -1,3 +1,4 @@
+
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -25,7 +26,7 @@ export default function HeroSection() {
         </p>
         <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg transition-transform hover:scale-105">
-            <Link href="#join">Get Your Free Pass</Link>
+            <Link href="/join">Get Your Free Pass</Link>
           </Button>
           <Button asChild size="lg" variant="outline" className="shadow-lg transition-transform hover:scale-105">
             <Link href="#services">Explore Services</Link>

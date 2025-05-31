@@ -1,3 +1,4 @@
+
 import Link from "next/link";
 import { Facebook, Instagram, Twitter, Zap } from "lucide-react";
 
@@ -23,10 +24,10 @@ export default function Footer() {
             <div>
               <p className="font-headline font-semibold text-foreground">Quick Links</p>
               <ul className="mt-4 space-y-2 text-sm">
-                <li><Link href="#services" className="text-muted-foreground hover:text-primary">Services</Link></li>
-                <li><Link href="#testimonials" className="text-muted-foreground hover:text-primary">Testimonials</Link></li>
-                <li><Link href="#contact" className="text-muted-foreground hover:text-primary">Contact</Link></li>
-                <li><Link href="#join" className="text-muted-foreground hover:text-primary">Join Now</Link></li>
+                <li><Link href="/#services" className="text-muted-foreground hover:text-primary">Services</Link></li>
+                <li><Link href="/#testimonials" className="text-muted-foreground hover:text-primary">Testimonials</Link></li>
+                <li><Link href="/#contact" className="text-muted-foreground hover:text-primary">Contact</Link></li>
+                <li><Link href="/join" className="text-muted-foreground hover:text-primary">Join Now</Link></li>
               </ul>
             </div>
             <div>

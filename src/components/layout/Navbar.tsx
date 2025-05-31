@@ -37,7 +37,7 @@ export default function Navbar() {
             </Link>
           ))}
           <Button asChild variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Link href="#join">Join Now</Link>
+            <Link href="/join">Join Now</Link>
           </Button>
         </nav>
 
@@ -68,7 +68,7 @@ export default function Navbar() {
                   </Link>
                 ))}
                 <Button asChild variant="default" size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground mt-4" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Link href="#join">Join Now</Link>
+                  <Link href="/join">Join Now</Link>
                 </Button>
               </div>
             </SheetContent>
