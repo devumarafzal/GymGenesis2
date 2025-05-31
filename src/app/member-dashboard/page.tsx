@@ -8,23 +8,58 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserCircle, CalendarDays, Award, LogOut, XCircle, Clock, User as TrainerIcon } from 'lucide-react'; // Added XCircle
-import type { GymClass, Trainer } from '@/app/admin/page'; // Import types
+import { UserCircle, CalendarDays, LogOut, XCircle, Clock, User as TrainerIcon, Edit } from 'lucide-react';
+import type { GymClass, Trainer } from '@/app/admin/page';
 import { useToast } from "@/hooks/use-toast";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 
 interface BookingDetails extends GymClass {
   trainerName: string;
 }
 
+const nameFormSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
+});
+
+const passwordFormSchema = z.object({
+  currentPassword: z.string().min(1, { message: "Current password is required." }),
+  newPassword: z.string().min(8, { message: "New password must be at least 8 characters." }),
+  confirmNewPassword: z.string(),
+}).refine((data) => data.newPassword === data.confirmNewPassword, {
+  message: "New passwords do not match.",
+  path: ["confirmNewPassword"],
+});
+
+
 export default function MemberDashboardPage() {
-  const { currentUser, role, isLoading, signOutAndRedirect, isAuthenticated } = useAuth();
+  const { currentUser, role, isLoading, signOutAndRedirect, isAuthenticated, updateName, changePassword } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
   const [myBookings, setMyBookings] = useState<BookingDetails[]>([]);
-  const [allClasses, setAllClasses] = useState<GymClass[]>([]); // To manage global class state for cancellations
-  const [allTrainers, setAllTrainers] = useState<Trainer[]>([]);
+  const [allClasses, setAllClasses] = useState<GymClass[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
+
+  const nameForm = useForm<z.infer<typeof nameFormSchema>>({
+    resolver: zodResolver(nameFormSchema),
+    defaultValues: { name: currentUser?.name || "" },
+  });
+
+  const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
+    resolver: zodResolver(passwordFormSchema),
+    defaultValues: { currentPassword: "", newPassword: "", confirmNewPassword: "" },
+  });
+
+  useEffect(() => {
+    if (currentUser) {
+      nameForm.reset({ name: currentUser.name });
+    }
+  }, [currentUser, nameForm]);
+
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || role !== 'member')) {
@@ -41,21 +76,25 @@ export default function MemberDashboardPage() {
         ...cls,
         bookedUserIds: cls.bookedUserIds || []
       })) : [];
-      const currentTrainers: Trainer[] = storedTrainers ? JSON.parse(storedTrainers) : [];
+      // const currentTrainers: Trainer[] = storedTrainers ? JSON.parse(storedTrainers) : [];
       
       setAllClasses(currentClasses);
-      setAllTrainers(currentTrainers);
+      // setAllTrainers(currentTrainers); // trainers not directly used for booking details display logic for now
       
       const userBookings = currentClasses
         .filter(cls => cls.bookedUserIds.includes(currentUser.id))
         .map(cls => {
-          const trainer = currentTrainers.find(t => t.id === cls.trainerId);
+          // For simplicity, not fetching full trainer details again here if not strictly necessary
+          // Trainer details could be passed or fetched if needed.
+          const trainerName = localStorage.getItem('adminTrainers') ? 
+                              (JSON.parse(localStorage.getItem('adminTrainers')!) as Trainer[]).find(t => t.id === cls.trainerId)?.name || "N/A"
+                              : "N/A";
           return {
             ...cls,
-            trainerName: trainer ? trainer.name : "N/A (Unassigned)",
+            trainerName: trainerName,
           };
         })
-        .sort((a,b) => { // Sort by day and then start time
+        .sort((a,b) => {
              const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
              if(dayOrder.indexOf(a.dayOfWeek) === dayOrder.indexOf(b.dayOfWeek)){
                  return a.startTime.localeCompare(b.startTime);
@@ -66,9 +105,8 @@ export default function MemberDashboardPage() {
       setMyBookings(userBookings);
       setIsDataLoading(false);
     }
-  }, [currentUser, role, isAuthenticated]); // Rerun if currentUser changes or data is updated elsewhere
+  }, [currentUser, role, isAuthenticated]);
 
-   // Effect to save all classes back to localStorage when they change due to cancellation
   useEffect(() => {
     if (typeof window !== 'undefined' && !isDataLoading && allClasses.length > 0) {
       localStorage.setItem('adminClasses', JSON.stringify(allClasses));
@@ -102,6 +140,25 @@ export default function MemberDashboardPage() {
     });
   };
 
+  const onNameSubmit = async (values: z.infer<typeof nameFormSchema>) => {
+    const result = await updateName(values.name);
+    if (result.success) {
+      toast({ title: "Success", description: result.message });
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
+    }
+  };
+
+  const onPasswordSubmit = async (values: z.infer<typeof passwordFormSchema>) => {
+    const result = await changePassword(values.currentPassword, values.newPassword);
+    if (result.success) {
+      toast({ title: "Success", description: result.message });
+      passwordForm.reset();
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
+    }
+  };
+
 
   if (isLoading || isDataLoading) {
     return <div className="flex justify-center items-center min-h-screen"><p>Loading dashboard...</p></div>;
@@ -115,7 +172,7 @@ export default function MemberDashboardPage() {
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-grow py-8 md:py-12 bg-background">
-        <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8"> {/* Increased max-width */}
+        <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-8">
             <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Member <span className="text-primary">Dashboard</span>
@@ -140,7 +197,88 @@ export default function MemberDashboardPage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 gap-6"> {/* Single column for bookings, can be md:grid-cols-2 for other cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+             {/* Profile Settings Card */}
+            <Card className="shadow-lg">
+              <CardHeader>
+                <CardTitle className="font-headline text-xl flex items-center">
+                  <Edit className="mr-2 h-6 w-6 text-accent" /> Profile Settings
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Edit Name Form */}
+                <Form {...nameForm}>
+                  <form onSubmit={nameForm.handleSubmit(onNameSubmit)} className="space-y-4">
+                    <FormField
+                      control={nameForm.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Your name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" className="w-full" disabled={nameForm.formState.isSubmitting}>
+                      {nameForm.formState.isSubmitting ? "Saving..." : "Save Name"}
+                    </Button>
+                  </form>
+                </Form>
+
+                {/* Change Password Form */}
+                <Form {...passwordForm}>
+                  <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
+                    <FormField
+                      control={passwordForm.control}
+                      name="currentPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Current Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={passwordForm.control}
+                      name="newPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>New Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={passwordForm.control}
+                      name="confirmNewPassword"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Confirm New Password</FormLabel>
+                          <FormControl>
+                            <Input type="password" placeholder="••••••••" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" className="w-full" disabled={passwordForm.formState.isSubmitting}>
+                       {passwordForm.formState.isSubmitting ? "Changing..." : "Change Password"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+
+            {/* My Bookings Card */}
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="font-headline text-xl flex items-center">
@@ -151,7 +289,7 @@ export default function MemberDashboardPage() {
                 {myBookings.length === 0 ? (
                   <p className="text-muted-foreground">You have no upcoming bookings. <Button variant="link" asChild className="p-0 h-auto"><a href="/schedule">Book a class now!</a></Button></p>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4 max-h-96 overflow-y-auto">
                     {myBookings.map(booking => (
                       <Card key={booking.id} className="bg-card/50 p-4">
                         <div className="flex justify-between items-start">
@@ -176,8 +314,6 @@ export default function MemberDashboardPage() {
                 )}
               </CardContent>
             </Card>
-
-            {/* Membership Details Card Removed */}
           </div>
         </div>
       </main>
@@ -185,7 +321,3 @@ export default function MemberDashboardPage() {
     </div>
   );
 }
-
-
-    
-

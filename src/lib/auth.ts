@@ -122,3 +122,48 @@ export const getUserRole = (): User['role'] | null => {
   const user = getCurrentUser();
   return user ? user.role : null;
 };
+
+export const updateUserName = async (userId: string, newName: string): Promise<{ success: boolean; message: string; updatedUser?: User }> => {
+  if (typeof window === 'undefined') return { success: false, message: "Operation failed: No window context."};
+  let users = getUsers();
+  const userIndex = users.findIndex(u => u.id === userId);
+
+  if (userIndex === -1) {
+    return { success: false, message: "User not found." };
+  }
+
+  users[userIndex].name = newName;
+  saveUsers(users);
+
+  const currentlyLoggedInUser = getCurrentUser();
+  if (currentlyLoggedInUser && currentlyLoggedInUser.id === userId) {
+    setCurrentUser(users[userIndex]); // Update current user in storage if it's them
+  }
+
+  return { success: true, message: "Name updated successfully.", updatedUser: users[userIndex] };
+};
+
+export const updateUserPassword = async (userId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
+  if (typeof window === 'undefined') return { success: false, message: "Operation failed: No window context."};
+  let users = getUsers();
+  const userIndex = users.findIndex(u => u.id === userId);
+
+  if (userIndex === -1) {
+    return { success: false, message: "User not found." };
+  }
+
+  // For demo: plain text password check. In real app, compare hashed passwords.
+  if (users[userIndex].passwordHash !== currentPassword) {
+    return { success: false, message: "Current password does not match." };
+  }
+
+  users[userIndex].passwordHash = newPassword; // Store new "hashed" (plain text for demo) password
+  saveUsers(users);
+
+  const currentlyLoggedInUser = getCurrentUser();
+  if (currentlyLoggedInUser && currentlyLoggedInUser.id === userId) {
+    setCurrentUser(users[userIndex]); // Update current user in storage
+  }
+  
+  return { success: true, message: "Password updated successfully." };
+};
