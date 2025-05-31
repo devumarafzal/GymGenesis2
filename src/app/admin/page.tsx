@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,10 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, Trash2, Edit3, Users, BookOpen } from 'lucide-react';
+import { PlusCircle, Trash2, Edit3, Users, BookOpen, LogOut } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { services as serviceDefinitions, initialSeedTrainers } from '@/components/sections/ServicesSection'; // Import service definitions and initial trainers
+import { services as serviceDefinitions, initialSeedTrainers } from '@/components/sections/ServicesSection';
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth
 
 // Define types for Admin data
 export interface Trainer {
@@ -24,62 +26,71 @@ export interface Trainer {
 
 export interface GymClass {
   id: string;
-  serviceTitle: string; // Title from serviceDefinitions
+  serviceTitle: string; 
   trainerId: string;
   schedule: string;
 }
 
 export default function AdminPage() {
+  const { currentUser, role, isLoading, signOutAndRedirect, isAuthenticated } = useAuth(); // Use useAuth
+  const router = useRouter();
+
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [classes, setClasses] = useState<GymClass[]>([]);
 
-  // Trainer form state
   const [trainerName, setTrainerName] = useState('');
   const [trainerSpecialty, setTrainerSpecialty] = useState('');
   const [trainerImageUrl, setTrainerImageUrl] = useState('');
   const [editingTrainer, setEditingTrainer] = useState<Trainer | null>(null);
 
-  // Class form state
   const [selectedService, setSelectedService] = useState<string>('');
   const [selectedTrainer, setSelectedTrainer] = useState<string>('');
   const [classSchedule, setClassSchedule] = useState('');
   const [editingClass, setEditingClass] = useState<GymClass | null>(null);
 
-  // Load initial data from localStorage or use defaults from ServicesSection
   useEffect(() => {
-    const storedTrainers = localStorage.getItem('adminTrainers');
-    if (storedTrainers) {
-      setTrainers(JSON.parse(storedTrainers));
-    } else {
-      // Seed with initial trainers from ServicesSection if none in localStorage
-      const trainersToSeed = initialSeedTrainers.map(seed => ({
-        id: seed.id,
-        name: seed.name,
-        specialty: seed.specialty,
-        imageUrl: seed.imageUrl,
-      }));
-      setTrainers(trainersToSeed);
+    if (!isLoading && (!isAuthenticated || role !== 'admin')) {
+      router.push('/signin');
     }
+  }, [isLoading, isAuthenticated, role, router]);
 
-    const storedClasses = localStorage.getItem('adminClasses');
-    if (storedClasses) {
-      setClasses(JSON.parse(storedClasses));
+
+  useEffect(() => {
+    if (role === 'admin') { // Only load data if admin
+      const storedTrainers = localStorage.getItem('adminTrainers');
+      if (storedTrainers) {
+        setTrainers(JSON.parse(storedTrainers));
+      } else {
+        const trainersToSeed = initialSeedTrainers.map(seed => ({
+          id: seed.id,
+          name: seed.name,
+          specialty: seed.specialty,
+          imageUrl: seed.imageUrl,
+        }));
+        setTrainers(trainersToSeed);
+      }
+
+      const storedClasses = localStorage.getItem('adminClasses');
+      if (storedClasses) {
+        setClasses(JSON.parse(storedClasses));
+      }
     }
-  }, []);
-
-  // Save to localStorage whenever trainers or classes change
-  useEffect(() => {
-    localStorage.setItem('adminTrainers', JSON.stringify(trainers));
-  }, [trainers]);
+  }, [role]); // Depend on role
 
   useEffect(() => {
-    localStorage.setItem('adminClasses', JSON.stringify(classes));
-  }, [classes]);
+    if (role === 'admin') {
+        localStorage.setItem('adminTrainers', JSON.stringify(trainers));
+    }
+  }, [trainers, role]);
 
+  useEffect(() => {
+    if (role === 'admin') {
+        localStorage.setItem('adminClasses', JSON.stringify(classes));
+    }
+  }, [classes, role]);
 
-  // Trainer Handlers
   const handleAddOrUpdateTrainer = () => {
-    if (!trainerName || !trainerSpecialty) return; // Basic validation
+    if (!trainerName || !trainerSpecialty) return;
     if (editingTrainer) {
       setTrainers(trainers.map(t => t.id === editingTrainer.id ? { ...t, name: trainerName, specialty: trainerSpecialty, imageUrl: trainerImageUrl || 'https://placehold.co/300x300.png' } : t));
       setEditingTrainer(null);
@@ -106,11 +117,9 @@ export default function AdminPage() {
 
   const handleRemoveTrainer = (id: string) => {
     setTrainers(trainers.filter(trainer => trainer.id !== id));
-    // Also remove classes associated with this trainer
     setClasses(classes.filter(c => c.trainerId !== id));
   };
 
-  // Class Handlers
   const handleAddOrUpdateClass = () => {
     if (!selectedService || !selectedTrainer || !classSchedule) return;
      if (editingClass) {
@@ -146,17 +155,31 @@ export default function AdminPage() {
     return trainer ? trainer.name : 'Unknown Trainer';
   }
 
+  if (isLoading) {
+    return <div className="flex justify-center items-center min-h-screen"><p>Loading...</p></div>;
+  }
+
+  if (!currentUser || role !== 'admin') {
+     // Should be redirected by useEffect, but as a fallback:
+    return <div className="flex justify-center items-center min-h-screen"><p>Access Denied. Redirecting...</p></div>;
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-grow py-8 md:py-12 bg-background">
         <div className="container mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
-          <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground sm:text-5xl mb-12 text-center">
-            Admin <span className="text-primary">Dashboard</span>
-          </h1>
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="font-headline text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
+              Admin <span className="text-primary">Dashboard</span>
+            </h1>
+            <Button variant="outline" onClick={() => signOutAndRedirect('/signin')}>
+              <LogOut className="mr-2 h-5 w-5" /> Sign Out
+            </Button>
+          </div>
+          <p className="mb-2">Welcome, {currentUser.name} ({currentUser.email})</p>
           
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Trainer Management Section */}
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle className="font-headline text-2xl flex items-center"><Users className="mr-2 h-6 w-6 text-primary" />Manage Trainers</CardTitle>
@@ -239,7 +262,6 @@ export default function AdminPage() {
               </CardContent>
             </Card>
 
-            {/* Class Management Section */}
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle className="font-headline text-2xl flex items-center"><BookOpen className="mr-2 h-6 w-6 text-primary" />Manage Classes</CardTitle>
@@ -343,7 +365,7 @@ export default function AdminPage() {
             </Card>
           </div>
           <p className="text-center text-sm text-muted-foreground mt-12">
-            Note: Admin data is currently stored in browser localStorage and will persist on this device. In a real application, this data would be managed via a secure backend.
+            Note: Admin data is currently stored in browser localStorage and will persist on this device. User accounts are also managed in localStorage for this demo.
           </p>
         </div>
       </main>

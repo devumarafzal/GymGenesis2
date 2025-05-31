@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Zap, Shield } from "lucide-react";
+import { Menu, Zap, Shield, User, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth"; // Import useAuth
 
 const navLinks = [
   { href: "/#services", label: "Services" },
@@ -15,6 +16,17 @@ const navLinks = [
 
 export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const { currentUser, role, signOutAndRedirect, isLoading } = useAuth();
+
+  const getProfileLink = () => {
+    if (!currentUser) return "/signin";
+    switch (role) {
+      case 'admin': return "/admin";
+      case 'trainer': return "/trainer-dashboard";
+      case 'member': return "/member-dashboard";
+      default: return "/signin";
+    }
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -36,12 +48,32 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
-          <Link href="/admin" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary flex items-center">
-            <Shield className="mr-1 h-4 w-4" /> Admin
-          </Link>
-          <Button asChild variant="default" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Link href="/signup">Sign Up</Link>
-          </Button>
+          
+          {!isLoading && currentUser && role === 'admin' && (
+            <Link href="/admin" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary flex items-center">
+              <Shield className="mr-1 h-4 w-4" /> Admin
+            </Link>
+          )}
+
+          {!isLoading && currentUser ? (
+            <>
+              <Link href={getProfileLink()} className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary flex items-center">
+                <User className="mr-1 h-4 w-4" /> Profile
+              </Link>
+              <Button variant="outline" size="sm" onClick={() => signOutAndRedirect('/signin')}>
+                <LogOut className="mr-1 h-4 w-4" /> Sign Out
+              </Button>
+            </>
+          ) : !isLoading && (
+            <>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/signin">Sign In</Link>
+              </Button>
+              <Button asChild variant="default" size="sm" className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Link href="/signup">Sign Up</Link>
+              </Button>
+            </>
+          )}
         </nav>
 
         <div className="md:hidden">
@@ -70,16 +102,40 @@ export default function Navbar() {
                     {link.label}
                   </Link>
                 ))}
-                <Link 
-                  href="/admin" 
-                  className="text-lg font-medium text-foreground transition-colors hover:text-primary flex items-center"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
-                  <Shield className="mr-2 h-5 w-5" /> Admin
-                </Link>
-                <Button asChild variant="default" size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground mt-4" onClick={() => setIsMobileMenuOpen(false)}>
-                  <Link href="/signup">Sign Up</Link>
-                </Button>
+
+                {!isLoading && currentUser && role === 'admin' && (
+                  <Link 
+                    href="/admin" 
+                    className="text-lg font-medium text-foreground transition-colors hover:text-primary flex items-center"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <Shield className="mr-2 h-5 w-5" /> Admin
+                  </Link>
+                )}
+
+                {!isLoading && currentUser ? (
+                  <>
+                    <Link 
+                      href={getProfileLink()}
+                      className="text-lg font-medium text-foreground transition-colors hover:text-primary flex items-center"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                    >
+                      <User className="mr-2 h-5 w-5" /> Profile
+                    </Link>
+                    <Button variant="outline" size="lg" className="mt-4" onClick={() => { signOutAndRedirect('/signin'); setIsMobileMenuOpen(false); }}>
+                      <LogOut className="mr-2 h-5 w-5" /> Sign Out
+                    </Button>
+                  </>
+                ) : !isLoading && (
+                  <>
+                    <Button asChild variant="ghost" size="lg" className="text-lg" onClick={() => setIsMobileMenuOpen(false)}>
+                        <Link href="/signin">Sign In</Link>
+                    </Button>
+                    <Button asChild variant="default" size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground mt-2 text-lg" onClick={() => setIsMobileMenuOpen(false)}>
+                      <Link href="/signup">Sign Up</Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </SheetContent>
           </Sheet>

@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -20,6 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { useAuth } from "@/hooks/useAuth";
 
 const formSchema = z.object({
   email: z.string().email({
@@ -32,6 +34,8 @@ const formSchema = z.object({
 
 export default function SignInPage() {
   const { toast } = useToast();
+  const { signIn, isLoading, role } = useAuth(); // Get role to redirect
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -42,15 +46,28 @@ export default function SignInPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log("Sign in values:", values);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast({
-      title: "Signed In!",
-      description: "Welcome back to GymGenesis!",
-      variant: "default",
-    });
-    form.reset();
-    // Consider redirecting the user after successful sign-in, e.g., router.push('/dashboard')
+    const result = await signIn(values.email, values.password);
+    if (result.success && result.user) {
+      toast({
+        title: "Signed In!",
+        description: `Welcome back, ${result.user.name}!`,
+      });
+      form.reset();
+      // Redirect based on role
+      if (result.user.role === 'admin') {
+        router.push('/admin');
+      } else if (result.user.role === 'trainer') {
+        router.push('/trainer-dashboard');
+      } else {
+        router.push('/member-dashboard');
+      }
+    } else {
+      toast({
+        title: "Sign In Failed",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -97,8 +114,8 @@ export default function SignInPage() {
                       Forgot password?
                     </Link>
                   </div>
-                  <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? "Signing In..." : "Sign In"}
+                  <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || form.formState.isSubmitting}>
+                    {isLoading || form.formState.isSubmitting ? "Signing In..." : "Sign In"}
                   </Button>
                 </form>
               </Form>

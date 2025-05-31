@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -20,8 +21,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
+import { useAuth } from "@/hooks/useAuth";
 
 const formSchema = z.object({
+  name: z.string().min(2, { message: "Name must be at least 2 characters." }),
   email: z.string().email({
     message: "Please enter a valid email address.",
   }),
@@ -38,10 +41,13 @@ const formSchema = z.object({
 
 export default function SignUpPage() {
   const { toast } = useToast();
+  const { signUp, isLoading } = useAuth();
+  const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
       confirmPassword: "",
@@ -49,14 +55,21 @@ export default function SignUpPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    console.log("Sign up values:", { email: values.email, password: values.password });
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    toast({
-      title: "Account Created!",
-      description: "Welcome to GymGenesis! You can now sign in.",
-      variant: "default",
-    });
-    form.reset();
+    const result = await signUp(values.name, values.email, values.password);
+    if (result.success) {
+      toast({
+        title: "Account Created!",
+        description: "Welcome to GymGenesis! You can now sign in.",
+      });
+      form.reset();
+      router.push("/signin");
+    } else {
+      toast({
+        title: "Sign Up Failed",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
   }
 
   return (
@@ -72,6 +85,19 @@ export default function SignUpPage() {
             <CardContent>
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="email"
@@ -111,8 +137,8 @@ export default function SignUpPage() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={form.formState.isSubmitting}>
-                    {form.formState.isSubmitting ? "Creating Account..." : "Sign Up"}
+                  <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || form.formState.isSubmitting}>
+                    {isLoading || form.formState.isSubmitting ? "Creating Account..." : "Sign Up"}
                   </Button>
                 </form>
               </Form>
