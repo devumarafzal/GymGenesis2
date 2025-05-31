@@ -9,9 +9,7 @@ import { Menu, Zap, Shield, User, LogOut, CalendarDays, Phone } from "lucide-rea
 import { useAuth } from "@/hooks/useAuth"; 
 
 const navLinks = [
-  { href: "/#services", label: "Services" },
   { href: "/schedule", label: "Schedule" },
-  { href: "/#testimonials", label: "Testimonials" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -42,7 +40,7 @@ export default function Navbar() {
         <nav className="hidden items-center space-x-6 md:flex">
           {navLinks.map((link) => (
             <Link
-              key={link.label} // Use label as key if href is not unique for sections
+              key={link.label} 
               href={link.href}
               className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
             >

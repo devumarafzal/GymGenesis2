@@ -41,7 +41,7 @@ export default function ContactPage() {
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <main className="flex-grow py-16 md:py-24 bg-secondary">
+      <main className="flex-grow py-16 md:py-20 bg-secondary">
         <div className="container mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
           <div className="mb-4">
             <Button variant="outline" asChild>
