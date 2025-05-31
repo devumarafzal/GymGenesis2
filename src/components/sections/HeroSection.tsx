@@ -28,9 +28,6 @@ export default function HeroSection() {
           <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground shadow-lg transition-transform hover:scale-105">
             <Link href="/signup">Sign Up Today</Link>
           </Button>
-          <Button asChild size="lg" variant="outline" className="shadow-lg transition-transform hover:scale-105">
-            <Link href="/#services">Explore Services</Link>
-          </Button>
         </div>
       </div>
     </section>
