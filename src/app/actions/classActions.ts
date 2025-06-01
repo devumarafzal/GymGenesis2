@@ -8,7 +8,6 @@ import type { GymClass, Trainer, DayOfWeek as PrismaDayOfWeek } from '@prisma/cl
 export interface GymClassWithDetails extends GymClass {
   trainer?: { name: string } | null; // Trainer can be null
   _count?: { bookings: number };
-  bookedUserIds?: string[]; // Keep this for client-side compatibility temporarily if needed, but primarily rely on _count
 }
 
 export async function getClasses(): Promise<GymClassWithDetails[]> {
@@ -30,9 +29,7 @@ export async function getClasses(): Promise<GymClassWithDetails[]> {
         { startTime: 'asc' },
       ],
     });
-    // Map to include bookedUserIds if absolutely needed, though _count.bookings is preferred.
-    // For this iteration, let's rely on _count and adapt client if necessary.
-    return classes.map(c => ({...c, bookedUserIds: [] })); // Placeholder for bookedUserIds
+    return classes;
   } catch (error) {
     console.error("Error fetching classes:", error);
     return [];
@@ -60,7 +57,7 @@ export async function addClass(data: AddClassData): Promise<{ success: boolean; 
         _count: { select: { bookings: true } },
       },
     });
-    return { success: true, message: 'Class added successfully.', class: {...newClass, bookedUserIds: []} };
+    return { success: true, message: 'Class added successfully.', class: newClass };
   } catch (error) {
     console.error("Error adding class:", error);
     return { success: false, message: 'Failed to add class.' };
@@ -82,7 +79,7 @@ export async function updateClass(id: string, data: UpdateClassData): Promise<{ 
         _count: { select: { bookings: true } },
       },
     });
-    return { success: true, message: 'Class updated successfully.', class: {...updatedClass, bookedUserIds: []} };
+    return { success: true, message: 'Class updated successfully.', class: updatedClass };
   } catch (error) {
     console.error("Error updating class:", error);
     return { success: false, message: 'Failed to update class.' };
@@ -109,3 +106,4 @@ export async function deleteClass(id: string): Promise<{ success: boolean; messa
 export async function getClassesForSchedule(): Promise<GymClassWithDetails[]> {
     return getClasses();
 }
+
