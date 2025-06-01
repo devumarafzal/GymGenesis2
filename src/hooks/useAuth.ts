@@ -3,22 +3,22 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { User } from '@/lib/auth';
+import type { User, Role } from '@prisma/client'; // Use Prisma's User type
 import {
   getCurrentUser as authGetCurrentUser,
   signIn as authSignIn,
   signUp as authSignUp,
   signOut as authSignOut,
-  isAuthenticated as authIsAuthenticated,
-  getUserRole as authGetUserRole,
+  // isAuthenticated as authIsAuthenticated, // Will use local state
+  // getUserRole as authGetUserRole, // Will use local state
   updateUserName as authUpdateUserName,
   updateUserPassword as authUpdateUserPassword,
 } from '@/lib/auth';
 
 export interface AuthHook {
   currentUser: User | null;
-  isAuthenticated: boolean;
-  role: User['role'] | null;
+  isAuthenticated: boolean; // Derived from currentUser state
+  role: User['role'] | null; // Derived from currentUser state
   signIn: typeof authSignIn;
   signUp: typeof authSignUp;
   signOutAndRedirect: (redirectTo?: string) => void;
@@ -29,21 +29,29 @@ export interface AuthHook {
 
 export function useAuth(): AuthHook {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [role, setRole] = useState<Role | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
 
-  const updateUserState = useCallback(() => {
-    const user = authGetCurrentUser();
+  const updateUserState = useCallback(async () => {
+    setIsLoading(true);
+    const user = await authGetCurrentUser();
     setCurrentUser(user);
+    setIsAuthenticated(!!user);
+    setRole(user?.role || null);
     setIsLoading(false);
   }, []);
 
   useEffect(() => {
     updateUserState(); // Initial check
 
-    // Listen for storage changes to sync auth state across tabs/windows
-    const handleStorageChange = () => {
-      updateUserState();
+    const handleStorageChange = (event: StorageEvent) => {
+      // Listen for changes to our specific session key or general storage events
+      // that might indicate auth state change (e.g. logged out from another tab)
+      if (event.key === 'gymCurrentUserId' || event.key === null) { // event.key is null for localStorage.clear()
+        updateUserState();
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     return () => {
@@ -54,22 +62,33 @@ export function useAuth(): AuthHook {
   const signIn: typeof authSignIn = async (email, password) => {
     setIsLoading(true);
     const result = await authSignIn(email, password);
-    updateUserState(); // Update state after sign-in attempt
+    if (result.success && result.user) {
+      setCurrentUser(result.user);
+      setIsAuthenticated(true);
+      setRole(result.user.role);
+    } else {
+      // Ensure state reflects sign-in failure
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      setRole(null);
+    }
+    setIsLoading(false);
     return result;
   };
 
   const signUp: typeof authSignUp = async (name, email, password) => {
     setIsLoading(true);
     const result = await authSignUp(name, email, password);
-    // No automatic sign-in after sign-up, user should explicitly sign in
-    updateUserState(); // Update state if needed (though signup doesn't log in)
+    // Sign up does not log the user in automatically in this setup
     setIsLoading(false);
     return result;
   };
 
   const signOutAndRedirect = (redirectTo: string = '/') => {
     authSignOut();
-    updateUserState(); // Update state after sign-out
+    setCurrentUser(null);
+    setIsAuthenticated(false);
+    setRole(null);
     router.push(redirectTo);
   };
 
@@ -77,7 +96,10 @@ export function useAuth(): AuthHook {
     if (!currentUser) return { success: false, message: "Not authenticated." };
     setIsLoading(true);
     const result = await authUpdateUserName(currentUser.id, newName);
-    updateUserState();
+    if (result.success && result.updatedUser) {
+      setCurrentUser(result.updatedUser); // Update local state
+      setRole(result.updatedUser.role);
+    }
     setIsLoading(false);
     return result;
   };
@@ -86,17 +108,15 @@ export function useAuth(): AuthHook {
     if (!currentUser) return { success: false, message: "Not authenticated." };
     setIsLoading(true);
     const result = await authUpdateUserPassword(currentUser.id, currentPassword, newPassword);
-    // No need to updateUserState here if password change doesn't affect display name/email immediately
-    // but if it logs user out or changes session, then yes. For now, assume it doesn't.
-    // If session token changes, updateUserState would be vital.
+    // Password change doesn't alter the user object structure here, so no setCurrentUser needed unless session is invalidated
     setIsLoading(false);
     return result;
   };
 
   return {
     currentUser,
-    isAuthenticated: authIsAuthenticated(), // More reliable to call the direct check
-    role: authGetUserRole(),
+    isAuthenticated,
+    role,
     signIn,
     signUp,
     signOutAndRedirect,

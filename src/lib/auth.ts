@@ -1,169 +1,176 @@
 
-// THIS IS A CLIENT-SIDE AUTHENTICATION MOCK USING LOCALSTORAGE
-// DO NOT USE THIS IN PRODUCTION DUE TO SECURITY RISKS (e.g., plain text passwords)
+// THIS IS CLIENT-SIDE AUTHENTICATION LOGIC INTERACTING WITH PRISMA
+// Password handling is still simplified for this prototype.
+// In a real app, use robust password hashing (e.g., bcrypt) on the server-side.
 
 "use client"; // Ensure this can be used by client components
 
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  passwordHash: string; // In a real app, this would be a hash, not plain text
-  role: 'member' | 'trainer' | 'admin';
-}
+import prisma from './prisma';
+import type { User as PrismaUser, Role } from '@prisma/client'; // Import Prisma generated types
 
-const USERS_STORAGE_KEY = 'gymUsers';
-const CURRENT_USER_STORAGE_KEY = 'gymCurrentUser';
+// Re-export Prisma's User type or define a compatible one if needed for frontend
+export type User = PrismaUser;
 
-// Helper to get users from localStorage
-const getUsers = (): User[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-    if (usersJson) {
-      return JSON.parse(usersJson);
-    } else {
-      // Seed admin user if no users exist
-      const adminUser: User = {
-        id: 'admin-seed',
-        name: 'Admin User',
-        email: 'admin@gym.com',
-        // IMPORTANT: Storing plain text passwords is a major security risk.
-        // This is for demonstration purposes only. In a real app, hash passwords.
-        passwordHash: 'admin123', // Plain text for demo
-        role: 'admin',
-      };
-      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify([adminUser]));
-      return [adminUser];
-    }
-  } catch (error) {
-    console.error("Error accessing users from localStorage:", error);
-    return [];
-  }
-};
+// Using localStorage for a simple session token (user ID)
+const CURRENT_USER_ID_STORAGE_KEY = 'gymCurrentUserId';
 
-// Helper to save users to localStorage
-const saveUsers = (users: User[]): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-  } catch (error) {
-    console.error("Error saving users to localStorage:", error);
-  }
-};
-
-// Helper to get current user from localStorage
-export const getCurrentUser = (): User | null => {
+// Helper to get current user ID from localStorage
+const getCurrentUserId = (): string | null => {
   if (typeof window === 'undefined') return null;
   try {
-    const currentUserJson = localStorage.getItem(CURRENT_USER_STORAGE_KEY);
-    return currentUserJson ? JSON.parse(currentUserJson) : null;
+    return localStorage.getItem(CURRENT_USER_ID_STORAGE_KEY);
   } catch (error) {
-    console.error("Error accessing current user from localStorage:", error);
+    console.error("Error accessing current user ID from localStorage:", error);
     return null;
   }
 };
 
-// Helper to set current user in localStorage
-const setCurrentUser = (user: User | null): void => {
+// Helper to set current user ID in localStorage
+const setCurrentUserId = (userId: string | null): void => {
   if (typeof window === 'undefined') return;
   try {
-    if (user) {
-      localStorage.setItem(CURRENT_USER_STORAGE_KEY, JSON.stringify(user));
+    if (userId) {
+      localStorage.setItem(CURRENT_USER_ID_STORAGE_KEY, userId);
     } else {
-      localStorage.removeItem(CURRENT_USER_STORAGE_KEY);
+      localStorage.removeItem(CURRENT_USER_ID_STORAGE_KEY);
     }
     // Dispatch a storage event to notify other tabs/windows or hooks
     window.dispatchEvent(new Event('storage'));
   } catch (error) {
-    console.error("Error setting current user in localStorage:", error);
+    console.error("Error setting current user ID in localStorage:", error);
+  }
+};
+
+export const getCurrentUser = async (): Promise<User | null> => {
+  if (typeof window === 'undefined') return null;
+  const userId = getCurrentUserId();
+  if (!userId) return null;
+
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    return user;
+  } catch (error) {
+    console.error("Error fetching user from database:", error);
+    setCurrentUserId(null); // Clear invalid session
+    return null;
   }
 };
 
 export const signUp = async (name: string, email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
-  const users = getUsers();
-  if (users.find(u => u.email === email)) {
-    return { success: false, message: 'Email already exists.' };
+  try {
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return { success: false, message: 'Email already exists.' };
+    }
+
+    // IMPORTANT: In a real app, HASH THE PASSWORD securely here before saving.
+    // Storing plain text passwords is a major security risk.
+    const passwordHash = password; // Plain text for demo
+
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        passwordHash, // Store the "hashed" (plain text for demo) password
+        role: 'MEMBER', // Default role
+      },
+    });
+    return { success: true, message: 'Sign up successful!', user: newUser };
+  } catch (error) {
+    console.error("Error during sign up:", error);
+    return { success: false, message: 'An error occurred during sign up.' };
   }
-
-  // In a real app, hash the password securely here
-  const newUser: User = {
-    id: Date.now().toString(),
-    name,
-    email,
-    passwordHash: password, // Storing plain text for demo
-    role: 'member', // Default role
-  };
-
-  saveUsers([...users, newUser]);
-  return { success: true, message: 'Sign up successful!', user: newUser };
 };
 
 export const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
-  const users = getUsers();
-  const user = users.find(u => u.email === email);
+  try {
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-  if (user && user.passwordHash === password) { // Plain text comparison for demo
-    setCurrentUser(user);
-    return { success: true, message: 'Sign in successful!', user };
+    // IMPORTANT: In a real app, compare the provided password with the stored HASH.
+    if (user && user.passwordHash === password) { // Plain text comparison for demo
+      setCurrentUserId(user.id);
+      return { success: true, message: 'Sign in successful!', user };
+    }
+    return { success: false, message: 'Invalid email or password.' };
+  } catch (error) {
+    console.error("Error during sign in:", error);
+    return { success: false, message: 'An error occurred during sign in.' };
   }
-  return { success: false, message: 'Invalid email or password.' };
 };
 
 export const signOut = (): void => {
-  setCurrentUser(null);
+  setCurrentUserId(null);
 };
 
-export const isAuthenticated = (): boolean => {
-  return !!getCurrentUser();
+export const isAuthenticated = async (): Promise<boolean> => {
+  const user = await getCurrentUser();
+  return !!user;
 };
 
-export const getUserRole = (): User['role'] | null => {
-  const user = getCurrentUser();
+export const getUserRole = async (): Promise<Role | null> => {
+  const user = await getCurrentUser();
   return user ? user.role : null;
 };
 
 export const updateUserName = async (userId: string, newName: string): Promise<{ success: boolean; message: string; updatedUser?: User }> => {
   if (typeof window === 'undefined') return { success: false, message: "Operation failed: No window context."};
-  let users = getUsers();
-  const userIndex = users.findIndex(u => u.id === userId);
+  try {
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: { name: newName },
+    });
 
-  if (userIndex === -1) {
-    return { success: false, message: "User not found." };
+    // If the updated user is the currently logged-in one, refresh their session data lightly.
+    // The useAuth hook will handle refreshing its own state.
+    const currentSessionUserId = getCurrentUserId();
+    if (currentSessionUserId === userId) {
+      // The hook will refetch the user, so no direct action needed here other than ensuring ID is still set.
+    }
+
+    return { success: true, message: "Name updated successfully.", updatedUser };
+  } catch (error) {
+    console.error("Error updating user name:", error);
+    return { success: false, message: "Failed to update name." };
   }
-
-  users[userIndex].name = newName;
-  saveUsers(users);
-
-  const currentlyLoggedInUser = getCurrentUser();
-  if (currentlyLoggedInUser && currentlyLoggedInUser.id === userId) {
-    setCurrentUser(users[userIndex]); // Update current user in storage if it's them
-  }
-
-  return { success: true, message: "Name updated successfully.", updatedUser: users[userIndex] };
 };
 
 export const updateUserPassword = async (userId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
   if (typeof window === 'undefined') return { success: false, message: "Operation failed: No window context."};
-  let users = getUsers();
-  const userIndex = users.findIndex(u => u.id === userId);
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
 
-  if (userIndex === -1) {
-    return { success: false, message: "User not found." };
+    if (!user) {
+      return { success: false, message: "User not found." };
+    }
+
+    // IMPORTANT: In a real app, compare currentPassword with the stored HASH.
+    if (user.passwordHash !== currentPassword) { // Plain text comparison for demo
+      return { success: false, message: "Current password does not match." };
+    }
+
+    // IMPORTANT: In a real app, HASH the newPassword securely here before saving.
+    const newPasswordHash = newPassword; // Plain text for demo
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: newPasswordHash },
+    });
+    
+    // Password change might invalidate session tokens in real apps. Here, we just confirm.
+    // The useAuth hook will manage its state.
+
+    return { success: true, message: "Password updated successfully." };
+  } catch (error) {
+    console.error("Error updating user password:", error);
+    return { success: false, message: "Failed to update password." };
   }
-
-  // For demo: plain text password check. In real app, compare hashed passwords.
-  if (users[userIndex].passwordHash !== currentPassword) {
-    return { success: false, message: "Current password does not match." };
-  }
-
-  users[userIndex].passwordHash = newPassword; // Store new "hashed" (plain text for demo) password
-  saveUsers(users);
-
-  const currentlyLoggedInUser = getCurrentUser();
-  if (currentlyLoggedInUser && currentlyLoggedInUser.id === userId) {
-    setCurrentUser(users[userIndex]); // Update current user in storage
-  }
-  
-  return { success: true, message: "Password updated successfully." };
 };
