@@ -1,12 +1,11 @@
-
 'use server';
 
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import type { Booking, GymClass, Trainer } from '@prisma/client';
 
 export interface BookingWithDetails extends Booking {
   gymClass: GymClass & {
-    trainer?: Trainer | null; // Trainer on GymClass can be null
+    trainer: Trainer | null;
     _count?: { bookings: number }; // Include booking count for the class
   };
 }

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -17,7 +16,7 @@ import {
 export interface AuthHook {
   currentUser: User | null;
   isAuthenticated: boolean; 
-  role: User['role'] | null; 
+  role: Role | null; 
   signIn: typeof authSignIn;
   signUp: typeof authSignUp;
   signOutAndRedirect: (redirectTo?: string) => void;
@@ -36,11 +35,19 @@ export function useAuth(): AuthHook {
 
   const updateUserState = useCallback(async () => {
     setIsLoading(true);
-    const user = await authGetCurrentUser();
-    setCurrentUser(user);
-    setIsAuthenticated(!!user);
-    setRole(user?.role || null);
-    setIsLoading(false);
+    try {
+      const user = await authGetCurrentUser();
+      setCurrentUser(user);
+      setIsAuthenticated(!!user);
+      setRole(user?.role || null);
+    } catch (error) {
+      console.error("Error updating user state:", error);
+      setCurrentUser(null);
+      setIsAuthenticated(false);
+      setRole(null);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -59,18 +66,27 @@ export function useAuth(): AuthHook {
 
   const signIn: typeof authSignIn = async (email, password) => {
     setIsLoading(true);
-    const result = await authSignIn(email, password);
-    if (result.success && result.user) {
-      setCurrentUser(result.user);
-      setIsAuthenticated(true);
-      setRole(result.user.role);
-    } else {
-      setCurrentUser(null);
-      setIsAuthenticated(false);
-      setRole(null);
+    try {
+      const result = await authSignIn(email, password);
+      if (result.success && result.user) {
+        setCurrentUser(result.user);
+        setIsAuthenticated(true);
+        setRole(result.user.role);
+        
+        // Force a re-fetch of user data to ensure everything is in sync
+        await updateUserState();
+      } else {
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        setRole(null);
+      }
+      return result;
+    } catch (error) {
+      console.error("Error during sign in:", error);
+      return { success: false, message: 'An error occurred during sign in.' };
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
-    return result;
   };
 
   const signUp: typeof authSignUp = async (name, email, password) => {

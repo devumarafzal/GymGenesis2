@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -41,7 +40,7 @@ const formSchema = z.object({
 
 export default function SignUpPage() {
   const { toast } = useToast();
-  const { signUp, isLoading } = useAuth();
+  const { signUp, isLoading, signIn } = useAuth();
   const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -59,10 +58,10 @@ export default function SignUpPage() {
     if (result.success) {
       toast({
         title: "Account Created!",
-        description: "Welcome to GymGenesis! You can now sign in.",
+        description: "Welcome to GymGenesis! Please sign in to continue.",
       });
       form.reset();
-      router.push("/signin");
+      router.push('/signin');
     } else {
       toast({
         title: "Sign Up Failed",

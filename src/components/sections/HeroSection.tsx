@@ -8,7 +8,7 @@ export default function HeroSection() {
     <section id="home" className="relative bg-secondary py-20 md:py-32">
       <div className="absolute inset-0">
         <Image
-          src="https://placehold.co/1920x1080.png"
+          src="/images/risen-wang-20jX9b35r_M-unsplash.jpg"
           alt="Fitness enthusiasts working out in a modern gym"
           fill
           style={{ objectFit: "cover" }}

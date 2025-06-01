@@ -1,7 +1,6 @@
-
 'use server';
 
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import type { GymClass, Trainer, DayOfWeek as PrismaDayOfWeek } from '@prisma/client';
 
 // Interface for class data returned to client, including trainer name and booking count

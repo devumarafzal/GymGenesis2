@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -8,7 +7,7 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserCircle, CalendarClock, ClipboardList, LogOut, Clock as TimeIcon, Users as ParticipantsIcon, Users2 as CapacityIcon } from 'lucide-react';
+import { UserCircle, CalendarClock, LogOut, Clock as TimeIcon, Users as ParticipantsIcon, Users2 as CapacityIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { getTrainerSchedule } from '@/app/actions/trainerActions';
 import type { GymClassWithDetails } from '@/app/actions/classActions';
@@ -25,7 +24,7 @@ export default function TrainerDashboardPage() {
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   const fetchTrainerData = useCallback(async () => {
-    if (currentUser && isAuthenticated && role === 'trainer') {
+    if (currentUser && isAuthenticated && role === 'TRAINER') {
       setIsDataLoading(true);
       try {
         const scheduleData = await getTrainerSchedule(currentUser.id);
@@ -53,7 +52,7 @@ export default function TrainerDashboardPage() {
 
   useEffect(() => {
     if (!authIsLoading) {
-      if (!isAuthenticated || role !== 'trainer') {
+      if (!isAuthenticated || role !== 'TRAINER') {
         router.push('/signin');
       } else {
         fetchTrainerData();
@@ -61,13 +60,12 @@ export default function TrainerDashboardPage() {
     }
   }, [authIsLoading, isAuthenticated, role, router, fetchTrainerData]);
 
-
   if (authIsLoading || isDataLoading) {
     return <div className="flex justify-center items-center min-h-screen"><p>Loading dashboard...</p></div>;
   }
 
-  if (!currentUser || role !== 'trainer') {
-     return <div className="flex justify-center items-center min-h-screen"><p>Access Denied. Redirecting...</p></div>;
+  if (!currentUser || role !== 'TRAINER') {
+    return <div className="flex justify-center items-center min-h-screen"><p>Access Denied. Redirecting...</p></div>;
   }
 
   return (
@@ -99,57 +97,40 @@ export default function TrainerDashboardPage() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="shadow-lg md:col-span-2"> {/* Make schedule card span full width on medium screens up */}
-              <CardHeader>
-                <CardTitle className="font-headline text-xl flex items-center">
-                  <CalendarClock className="mr-2 h-6 w-6 text-accent" /> My Upcoming Classes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {assignedClasses.length === 0 ? (
-                  <p className="text-muted-foreground">You have no classes assigned to you currently.</p>
-                ) : (
-                  <div className="space-y-4 max-h-[600px] overflow-y-auto">
-                    {assignedClasses.map(gymClass => (
-                      <Card key={gymClass.id} className="bg-card/80 p-4">
-                        <CardTitle className="text-lg font-semibold text-foreground">{gymClass.serviceTitle}</CardTitle>
-                        <CardDescription className="text-sm text-muted-foreground">
-                          {gymClass.dayOfWeek}
-                        </CardDescription>
-                        <div className="mt-2 space-y-1 text-sm">
-                          <p className="flex items-center text-muted-foreground">
-                            <TimeIcon className="mr-2 h-4 w-4" /> {gymClass.startTime} - {gymClass.endTime}
-                          </p>
-                          <p className="flex items-center text-muted-foreground">
-                            <ParticipantsIcon className="mr-2 h-4 w-4" /> Booked: {gymClass._count?.bookings ?? 0}
-                          </p>
-                           <p className="flex items-center text-muted-foreground">
-                            <CapacityIcon className="mr-2 h-4 w-4" /> Capacity: {gymClass.capacity}
-                          </p>
-                        </div>
-                        {/* Future: Could add a button/link to view class attendees if that feature is built */}
-                      </Card>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* This can remain a placeholder or be developed next */}
-            <Card className="shadow-lg md:col-span-2">
-              <CardHeader>
-                <CardTitle className="font-headline text-xl flex items-center">
-                  <ClipboardList className="mr-2 h-6 w-6 text-accent" /> Assigned Clients
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground mb-4">Manage details for your assigned clients or personal training sessions.</p>
-                <Button disabled className="w-full">View/Manage Clients (Coming Soon)</Button>
-              </CardContent>
-            </Card>
-          </div>
-
+          <Card className="shadow-lg">
+            <CardHeader>
+              <CardTitle className="font-headline text-xl flex items-center">
+                <CalendarClock className="mr-2 h-6 w-6 text-accent" /> My Upcoming Classes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {assignedClasses.length === 0 ? (
+                <p className="text-muted-foreground">You have no classes assigned to you currently.</p>
+              ) : (
+                <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                  {assignedClasses.map(gymClass => (
+                    <Card key={gymClass.id} className="bg-card/80 p-4">
+                      <CardTitle className="text-lg font-semibold text-foreground">{gymClass.serviceTitle}</CardTitle>
+                      <CardDescription className="text-sm text-muted-foreground">
+                        {gymClass.dayOfWeek}
+                      </CardDescription>
+                      <div className="mt-2 space-y-1 text-sm">
+                        <p className="flex items-center text-muted-foreground">
+                          <TimeIcon className="mr-2 h-4 w-4" /> {gymClass.startTime} - {gymClass.endTime}
+                        </p>
+                        <p className="flex items-center text-muted-foreground">
+                          <ParticipantsIcon className="mr-2 h-4 w-4" /> Booked: {gymClass._count?.bookings ?? 0}
+                        </p>
+                         <p className="flex items-center text-muted-foreground">
+                          <CapacityIcon className="mr-2 h-4 w-4" /> Capacity: {gymClass.capacity}
+                        </p>
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </main>
       <Footer />

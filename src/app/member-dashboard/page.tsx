@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -15,6 +14,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import type { Role } from '@prisma/client';
 
 import { getBookingsForUser, cancelBooking as cancelBookingAction, type BookingWithDetails } from '@/app/actions/bookingActions';
 import type { DayOfWeek as PrismaDayOfWeek } from '@prisma/client';
@@ -89,9 +89,9 @@ export default function MemberDashboardPage() {
 
 
   useEffect(() => {
-    if (!authIsLoading && (!isAuthenticated || role !== 'member')) {
+    if (!authIsLoading && (!isAuthenticated || role !== 'MEMBER')) {
       router.push('/signin');
-    } else if (isAuthenticated && role === 'member') {
+    } else if (isAuthenticated && role === 'MEMBER') {
       fetchMemberData();
     }
   }, [authIsLoading, isAuthenticated, role, router, fetchMemberData]);
@@ -141,7 +141,7 @@ export default function MemberDashboardPage() {
     return <div className="flex justify-center items-center min-h-screen"><p>Loading dashboard...</p></div>;
   }
 
-  if (!currentUser || role !== 'member') {
+  if (!currentUser || role !== 'MEMBER') {
     return <div className="flex justify-center items-center min-h-screen"><p>Access Denied. Redirecting...</p></div>;
   }
 

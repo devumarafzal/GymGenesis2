@@ -1,9 +1,9 @@
-
 'use server';
 
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import type { Trainer, User, GymClass, DayOfWeek as PrismaDayOfWeek } from '@prisma/client';
 import type { GymClassWithDetails } from '@/app/actions/classActions'; // Re-use this type
+import { hashPassword } from '@/lib/password-utils';
 
 // This is a placeholder. In a real app, use a strong, random password generator
 // and a secure way to communicate this to the trainer or force a reset.
@@ -44,11 +44,13 @@ export async function addTrainer(data: { name: string; email: string; specialty:
       return { success: false, message: 'User with this email already exists.' };
     }
 
+    const hashedPassword = await hashPassword(DEFAULT_TRAINER_PASSWORD);
+
     const newUser = await prisma.user.create({
       data: {
         name: data.name,
         email: data.email,
-        passwordHash: DEFAULT_TRAINER_PASSWORD, // Store plain text for demo - HASH IN PRODUCTION
+        passwordHash: hashedPassword,
         role: 'TRAINER',
         requiresPasswordChange: true, // Force password change on first login
       },

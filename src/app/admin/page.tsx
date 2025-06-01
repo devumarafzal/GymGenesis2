@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -44,9 +43,9 @@ export default function AdminPage() {
   const [trainerImageUrl, setTrainerImageUrl] = useState('');
   const [editingTrainer, setEditingTrainer] = useState<UITrainer | null>(null);
 
-  const [selectedService, setSelectedService] = useState<string>('');
-  const [selectedTrainerId, setSelectedTrainerId] = useState<string>('');
-  const [classDayOfWeek, setClassDayOfWeek] = useState<DayOfWeek>('Monday');
+  const [selectedService, setSelectedService] = useState<string>("default");
+  const [selectedTrainerId, setSelectedTrainerId] = useState<string>("unassigned");
+  const [classDayOfWeek, setClassDayOfWeek] = useState<DayOfWeek>("Monday");
   const [classStartTime, setClassStartTime] = useState<string>('');
   const [classEndTime, setClassEndTime] = useState<string>('');
   const [classCapacity, setClassCapacity] = useState<number | string>('');
@@ -70,9 +69,9 @@ export default function AdminPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (!authIsLoading && (!isAuthenticated || role !== 'admin')) {
+    if (!authIsLoading && (!isAuthenticated || role !== 'ADMIN')) {
       router.push('/signin');
-    } else if (role === 'admin') {
+    } else if (role === 'ADMIN') {
       fetchAdminData();
     }
   }, [authIsLoading, isAuthenticated, role, router, fetchAdminData]);
@@ -117,9 +116,9 @@ export default function AdminPage() {
   const handleEditTrainer = (trainer: UITrainer) => {
     setEditingTrainer(trainer);
     setTrainerName(trainer.name);
-    setTrainerEmail(trainer.user?.email || ''); // Email is part of User, might not be editable here directly once set
+    setTrainerEmail(trainer.user?.email ?? ''); // Use nullish coalescing
     setTrainerSpecialty(trainer.specialty);
-    setTrainerImageUrl(trainer.imageUrl);
+    setTrainerImageUrl(trainer.imageUrl ?? ''); // Use nullish coalescing
   };
 
   const handleRemoveTrainer = async (id: string) => {
@@ -142,65 +141,79 @@ export default function AdminPage() {
   };
 
   const resetClassForm = () => {
-    setSelectedService('');
-    setSelectedTrainerId('');
-    setClassDayOfWeek('Monday');
-    setClassStartTime('');
-    setClassEndTime('');
-    setClassCapacity('');
+    setSelectedService("default");
+    setSelectedTrainerId("unassigned");
+    setClassDayOfWeek("Monday");
+    setClassStartTime("");
+    setClassEndTime("");
+    setClassCapacity("");
     setEditingClass(null);
   };
 
   const handleAddOrUpdateClass = async () => {
-    if (!selectedService || !classDayOfWeek || !classStartTime || !classEndTime || !classCapacity) {
-      toast({ title: "Error", description: "Service, day, times, and capacity are required.", variant: "destructive" });
+    if (!selectedService || selectedService === "default") {
+      toast({ title: "Error", description: "Please select a service type", variant: "destructive" });
       return;
     }
+
+    if (!classDayOfWeek || !classStartTime || !classEndTime || !classCapacity) {
+      toast({ title: "Error", description: "Day, times, and capacity are required.", variant: "destructive" });
+      return;
+    }
+
     if (Number(classCapacity) <= 0) {
       toast({ title: "Error", description: "Capacity must be greater than 0.", variant: "destructive" });
       return;
     }
+
     if (classStartTime >= classEndTime) {
       toast({ title: "Error", description: "End time must be after start time.", variant: "destructive" });
       return;
     }
 
+    const trainerId = selectedTrainerId === "unassigned" ? null : selectedTrainerId;
     const classData = {
       serviceTitle: selectedService,
-      trainerId: selectedTrainerId || null, // Allow null trainerId
-      dayOfWeek: classDayOfWeek as PrismaDayOfWeek,
+      trainerId,
+      dayOfWeek: classDayOfWeek,
       startTime: classStartTime,
       endTime: classEndTime,
       capacity: Number(classCapacity),
     };
 
     setIsDataLoading(true);
-    if (editingClass) {
-      const result = await updateClass(editingClass.id, classData);
-      if (result.success && result.class) {
-        setClasses(classes.map(c => c.id === result.class!.id ? result.class! : c));
-        toast({ title: "Success", description: "Class updated successfully." });
-        resetClassForm();
+    try {
+      if (editingClass) {
+        const result = await updateClass(editingClass.id, classData);
+        if (result.success && result.class) {
+          setClasses(classes.map(c => c.id === editingClass.id ? result.class! : c));
+          toast({ title: "Success", description: "Class updated successfully." });
+          resetClassForm();
+        } else {
+          toast({ title: "Error", description: result.message, variant: "destructive" });
+        }
       } else {
-        toast({ title: "Error", description: result.message, variant: "destructive" });
+        const result = await addClass(classData);
+        if (result.success && result.class) {
+          setClasses([...classes, result.class]);
+          toast({ title: "Success", description: "Class added successfully." });
+          resetClassForm();
+        } else {
+          toast({ title: "Error", description: result.message, variant: "destructive" });
+        }
       }
-    } else {
-      const result = await addClass(classData);
-      if (result.success && result.class) {
-        setClasses([...classes, result.class]);
-        toast({ title: "Success", description: "Class added successfully." });
-        resetClassForm();
-      } else {
-        toast({ title: "Error", description: result.message, variant: "destructive" });
-      }
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to save class.", variant: "destructive" });
+      console.error("Failed to save class:", error);
+    } finally {
+      setIsDataLoading(false);
     }
-    setIsDataLoading(false);
   };
 
   const handleEditClass = (gymClass: UIGymClass) => {
     setEditingClass(gymClass);
     setSelectedService(gymClass.serviceTitle);
-    setSelectedTrainerId(gymClass.trainerId || '');
+    setSelectedTrainerId(gymClass.trainerId ?? "unassigned"); // Use nullish coalescing
     setClassDayOfWeek(gymClass.dayOfWeek as DayOfWeek);
     setClassStartTime(gymClass.startTime);
     setClassEndTime(gymClass.endTime);
@@ -229,7 +242,7 @@ export default function AdminPage() {
     return <div className="flex justify-center items-center min-h-screen"><p>Loading admin dashboard...</p></div>;
   }
 
-  if (!currentUser || role !== 'admin') {
+  if (!currentUser || role !== 'ADMIN') {
     return <div className="flex justify-center items-center min-h-screen"><p>Access Denied. Redirecting...</p></div>;
   }
 
@@ -357,9 +370,10 @@ export default function AdminPage() {
                 <form onSubmit={(e) => { e.preventDefault(); handleAddOrUpdateClass();}} className="space-y-4 mb-6">
                   <div>
                     <Label htmlFor="selectedService">Service (Class Type)</Label>
-                    <Select value={selectedService} onValueChange={setSelectedService} required>
+                    <Select value={selectedService || "default"} onValueChange={setSelectedService} required>
                       <SelectTrigger id="selectedService"><SelectValue placeholder="Select a service" /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="default" disabled>Select a service</SelectItem>
                         {serviceDefinitions.map(service => (
                           <SelectItem key={service.title} value={service.title}>{service.title}</SelectItem>
                         ))}
@@ -368,10 +382,10 @@ export default function AdminPage() {
                   </div>
                   <div>
                     <Label htmlFor="selectedTrainerId">Trainer (Optional)</Label>
-                    <Select value={selectedTrainerId} onValueChange={setSelectedTrainerId}>
+                    <Select value={selectedTrainerId || "unassigned"} onValueChange={setSelectedTrainerId}>
                       <SelectTrigger id="selectedTrainerId"><SelectValue placeholder={trainers.length === 0 ? "No trainers available" : "Select a trainer (or leave unassigned)"} /></SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Unassigned</SelectItem> {/* Option for unassigned */}
+                        <SelectItem value="unassigned">Unassigned</SelectItem>
                         {trainers.map(trainer => (
                           <SelectItem key={trainer.id} value={trainer.id}>{trainer.name}</SelectItem>
                         ))}
@@ -381,7 +395,7 @@ export default function AdminPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <Label htmlFor="classDayOfWeek">Day of Week</Label>
-                        <Select value={classDayOfWeek} onValueChange={(value) => setClassDayOfWeek(value as DayOfWeek)} required>
+                        <Select value={classDayOfWeek || "Monday"} onValueChange={(value) => setClassDayOfWeek(value as DayOfWeek)} required>
                             <SelectTrigger id="classDayOfWeek"><SelectValue placeholder="Select day" /></SelectTrigger>
                             <SelectContent>
                                 {daysOfWeek.map(day => <SelectItem key={day} value={day}>{day}</SelectItem>)}

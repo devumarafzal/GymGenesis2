@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,7 +11,7 @@ const testimonials = [
     quote: "GymGenesis transformed my fitness journey! The trainers are amazing and the atmosphere is so motivating. I've never felt stronger or healthier.",
     name: "Sarah L.",
     location: "New York, NY",
-    avatarUrl: "https://placehold.co/100x100.png",
+    avatarUrl: "/images/risen-wang-20jX9b35r_M-unsplash.jpg",
     dataAiHint: "happy woman",
     rating: 5,
   },
@@ -20,7 +19,7 @@ const testimonials = [
     quote: "The variety of classes and top-notch equipment make every workout enjoyable. I highly recommend GymGenesis to anyone serious about their fitness.",
     name: "Michael B.",
     location: "Austin, TX",
-    avatarUrl: "https://placehold.co/100x100.png",
+    avatarUrl: "/images/pexels-victorfreitas-841130.jpg",
     dataAiHint: "fit man",
     rating: 5,
   },
@@ -28,7 +27,7 @@ const testimonials = [
     quote: "I was hesitant to join a gym, but the community at GymGenesis is so welcoming. I've made great progress and new friends!",
     name: "Emily K.",
     location: "Chicago, IL",
-    avatarUrl: "https://placehold.co/100x100.png",
+    avatarUrl: "/images/view-gym-room-training-sports.jpg",
     dataAiHint: "smiling person",
     rating: 4,
   },

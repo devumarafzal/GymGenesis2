@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -6,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import type { Role } from '@prisma/client';
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,18 +54,21 @@ export default function SignInPage() {
       });
       form.reset();
       
-      if (result.user.requiresPasswordChange) {
-        router.push('/auth/force-change-password');
-      } else {
-        // Redirect based on role
-        if (result.user.role === 'admin') {
-          router.push('/admin');
-        } else if (result.user.role === 'trainer') {
-          router.push('/trainer-dashboard');
+      // Add a small delay to ensure state is updated
+      setTimeout(() => {
+        if (result.user.requiresPasswordChange) {
+          router.replace('/auth/force-change-password');
         } else {
-          router.push('/member-dashboard');
+          // Redirect based on role
+          if (result.user.role === 'ADMIN') {
+            router.replace('/admin');
+          } else if (result.user.role === 'TRAINER') {
+            router.replace('/trainer-dashboard');
+          } else if (result.user.role === 'MEMBER') {
+            router.replace('/member-dashboard');
+          }
         }
-      }
+      }, 100);
     } else {
       toast({
         title: "Sign In Failed",
@@ -82,8 +85,8 @@ export default function SignInPage() {
         <div className="container mx-auto max-w-md px-4 sm:px-6 lg:px-8">
           <Card className="shadow-xl rounded-lg w-full">
             <CardHeader className="text-center">
-              <CardTitle className="font-headline text-3xl">Sign In to GymGenesis</CardTitle>
-              <CardDescription>Access your account and continue your journey.</CardDescription>
+              <CardTitle className="font-headline text-3xl">Welcome Back!</CardTitle>
+              <CardDescription>Sign in to access your account.</CardDescription>
             </CardHeader>
             <CardContent>
               <Form {...form}>
@@ -93,7 +96,7 @@ export default function SignInPage() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email Address</FormLabel>
+                        <FormLabel>Email</FormLabel>
                         <FormControl>
                           <Input type="email" placeholder="you@example.com" {...field} />
                         </FormControl>
@@ -114,22 +117,19 @@ export default function SignInPage() {
                       </FormItem>
                     )}
                   />
-                  <div className="flex items-center justify-end">
-                    {/* <Link href="#" className="text-sm font-medium text-primary hover:underline">
-                      Forgot password?
-                    </Link> */}
-                  </div>
-                  <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || form.formState.isSubmitting}>
-                    {isLoading || form.formState.isSubmitting ? "Signing In..." : "Sign In"}
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
               </Form>
-              <p className="mt-6 text-center text-sm text-muted-foreground">
-                Don&apos;t have an account?{" "}
-                <Link href="/signup" className="font-medium text-primary hover:underline">
-                  Sign Up
-                </Link>
-              </p>
+              <div className="mt-4 text-center text-sm">
+                <p className="text-muted-foreground">
+                  Don't have an account?{" "}
+                  <Link href="/signup" className="text-primary hover:underline">
+                    Sign up
+                  </Link>
+                </p>
+              </div>
             </CardContent>
           </Card>
         </div>

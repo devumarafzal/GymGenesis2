@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from "react";
@@ -33,18 +32,18 @@ const formSchema = z.object({
 
 export default function ForceChangePasswordPage() {
   const { toast } = useToast();
-  const { currentUser, isAuthenticated, isLoading: authIsLoading, completePasswordSetup, role } = useAuth();
+  const { currentUser, isAuthenticated, isLoading: authIsLoading, completePasswordSetup, signIn, role } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
     if (!authIsLoading) {
       if (!isAuthenticated) {
-        router.push('/signin');
+        router.replace('/signin');
       } else if (currentUser && !currentUser.requiresPasswordChange) {
         // User is authenticated but doesn't need to change password, send to their dashboard
-        if (role === 'admin') router.push('/admin');
-        else if (role === 'trainer') router.push('/trainer-dashboard');
-        else router.push('/member-dashboard');
+        if (role === 'ADMIN') router.replace('/admin');
+        else if (role === 'TRAINER') router.replace('/trainer-dashboard');
+        else router.replace('/member-dashboard');
       }
       // If authenticated and requiresPasswordChange is true, stay on this page.
     }
@@ -61,24 +60,44 @@ export default function ForceChangePasswordPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!currentUser) {
       toast({ title: "Error", description: "Not authenticated.", variant: "destructive" });
-      router.push('/signin');
+      router.replace('/signin');
       return;
     }
 
     const result = await completePasswordSetup(values.newPassword);
-    if (result.success) {
+    if (result.success && result.updatedUser) {
       toast({
         title: "Password Set!",
-        description: "Your password has been successfully updated. Redirecting...",
+        description: "Your password has been successfully updated. Please wait while we log you in...",
       });
       form.reset();
-      // Redirect based on role after password setup
-      if (currentUser.role === 'admin') {
-        router.push('/admin');
-      } else if (currentUser.role === 'trainer') {
-        router.push('/trainer-dashboard');
+
+      // Re-authenticate with the new password
+      const signInResult = await signIn(result.updatedUser.email, values.newPassword);
+      if (signInResult.success && signInResult.user) {
+        toast({
+          title: "Success!",
+          description: "You have been successfully logged in with your new password.",
+        });
+
+        // Add a small delay to ensure state is updated
+        setTimeout(() => {
+          // Redirect based on role after successful re-authentication
+          if (signInResult.user.role === 'ADMIN') {
+            router.replace('/admin');
+          } else if (signInResult.user.role === 'TRAINER') {
+            router.replace('/trainer-dashboard');
+          } else {
+            router.replace('/member-dashboard');
+          }
+        }, 500); // Increased delay to 500ms to ensure state updates
       } else {
-        router.push('/member-dashboard'); // Should not happen for trainers
+        toast({
+          title: "Re-authentication Failed",
+          description: "Please sign in again with your new password.",
+          variant: "destructive",
+        });
+        router.replace('/signin');
       }
     } else {
       toast({
@@ -113,7 +132,6 @@ export default function ForceChangePasswordPage() {
         </div>
     );
   }
-
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -154,7 +172,7 @@ export default function ForceChangePasswordPage() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={form.formState.isSubmitting}>
+                  <Button type="submit" className="w-full" disabled={form.formState.isSubmitting}>
                     {form.formState.isSubmitting ? "Setting Password..." : "Set New Password"}
                   </Button>
                 </form>

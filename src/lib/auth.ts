@@ -1,30 +1,20 @@
-
 "use client"; 
 
-import prisma from './prisma';
+import { prisma } from './prisma';
 import type { User as PrismaUser, Role } from '@prisma/client'; 
 
 export type User = PrismaUser;
 
-const CURRENT_USER_ID_STORAGE_KEY = 'gymCurrentUserId';
+// Local storage key for the current user ID
+const CURRENT_USER_ID_KEY = 'gymCurrentUserId';
 
-const getCurrentUserId = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    return localStorage.getItem(CURRENT_USER_ID_STORAGE_KEY);
-  } catch (error) {
-    console.error("Error accessing current user ID from localStorage:", error);
-    return null;
-  }
-};
-
-const setCurrentUserId = (userId: string | null): void => {
+export const setCurrentUserId = (userId: string | null) => {
   if (typeof window === 'undefined') return;
   try {
     if (userId) {
-      localStorage.setItem(CURRENT_USER_ID_STORAGE_KEY, userId);
+      localStorage.setItem(CURRENT_USER_ID_KEY, userId);
     } else {
-      localStorage.removeItem(CURRENT_USER_ID_STORAGE_KEY);
+      localStorage.removeItem(CURRENT_USER_ID_KEY);
     }
     window.dispatchEvent(new Event('storage'));
   } catch (error) {
@@ -32,45 +22,52 @@ const setCurrentUserId = (userId: string | null): void => {
   }
 };
 
-export const getCurrentUser = async (): Promise<User | null> => {
+export const getCurrentUserId = () => {
   if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(CURRENT_USER_ID_KEY);
+  } catch (error) {
+    console.error("Error accessing current user ID from localStorage:", error);
+    return null;
+  }
+};
+
+export const getCurrentUser = async (): Promise<User | null> => {
   const userId = getCurrentUserId();
   if (!userId) return null;
 
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const response = await fetch('/api/auth/me', {
+      headers: {
+        'x-user-id': userId
+      }
     });
-    return user;
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return data.user;
   } catch (error) {
-    console.error("Error fetching user from database:", error);
-    setCurrentUserId(null); 
+    console.error("Error fetching current user:", error);
     return null;
   }
 };
 
 export const signUp = async (name: string, email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
   try {
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return { success: false, message: 'Email already exists.' };
-    }
-
-    const passwordHash = password; 
-
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        passwordHash, 
-        role: 'MEMBER',
-        requiresPasswordChange: false, // Standard members don't require immediate change
+    const response = await fetch('/api/auth/signup', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ name, email, password }),
     });
-    return { success: true, message: 'Sign up successful!', user: newUser };
+
+    const data = await response.json();
+    if (data.success && data.user) {
+      setCurrentUserId(data.user.id);
+    }
+    return data;
   } catch (error) {
     console.error("Error during sign up:", error);
     return { success: false, message: 'An error occurred during sign up.' };
@@ -79,15 +76,19 @@ export const signUp = async (name: string, email: string, password: string): Pro
 
 export const signIn = async (email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { email },
+    const response = await fetch('/api/auth/signin', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
     });
 
-    if (user && user.passwordHash === password) { 
-      setCurrentUserId(user.id);
-      return { success: true, message: 'Sign in successful!', user };
+    const data = await response.json();
+    if (data.success && data.user) {
+      setCurrentUserId(data.user.id);
     }
-    return { success: false, message: 'Invalid email or password.' };
+    return data;
   } catch (error) {
     console.error("Error during sign in:", error);
     return { success: false, message: 'An error occurred during sign in.' };
@@ -99,13 +100,17 @@ export const signOut = (): void => {
 };
 
 export const updateUserName = async (userId: string, newName: string): Promise<{ success: boolean; message: string; updatedUser?: User }> => {
-  if (typeof window === 'undefined') return { success: false, message: "Operation failed: No window context."};
   try {
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: { name: newName },
+    const response = await fetch('/api/auth/update-name', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId
+      },
+      body: JSON.stringify({ newName }),
     });
-    return { success: true, message: "Name updated successfully.", updatedUser };
+
+    return await response.json();
   } catch (error) {
     console.error("Error updating user name:", error);
     return { success: false, message: "Failed to update name." };
@@ -113,28 +118,17 @@ export const updateUserName = async (userId: string, newName: string): Promise<{
 };
 
 export const updateUserPassword = async (userId: string, currentPassword: string, newPassword: string): Promise<{ success: boolean; message: string }> => {
-  if (typeof window === 'undefined') return { success: false, message: "Operation failed: No window context."};
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
+    const response = await fetch('/api/auth/update-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId
+      },
+      body: JSON.stringify({ currentPassword, newPassword }),
     });
 
-    if (!user) {
-      return { success: false, message: "User not found." };
-    }
-
-    if (user.passwordHash !== currentPassword) { 
-      return { success: false, message: "Current password does not match." };
-    }
-
-    const newPasswordHash = newPassword; 
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: { passwordHash: newPasswordHash },
-    });
-    
-    return { success: true, message: "Password updated successfully." };
+    return await response.json();
   } catch (error) {
     console.error("Error updating user password:", error);
     return { success: false, message: "Failed to update password." };
@@ -142,17 +136,17 @@ export const updateUserPassword = async (userId: string, currentPassword: string
 };
 
 export const setPasswordAndClearFlag = async (userId: string, newPassword: string): Promise<{ success: boolean; message: string; updatedUser?: User }> => {
-  if (typeof window === 'undefined') return { success: false, message: "Operation failed: No window context."};
   try {
-    const newPasswordHash = newPassword; // Plain text for demo
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        passwordHash: newPasswordHash,
-        requiresPasswordChange: false,
+    const response = await fetch('/api/auth/set-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-user-id': userId
       },
+      body: JSON.stringify({ currentPassword: 'changeme', newPassword }),
     });
-    return { success: true, message: "Password set successfully.", updatedUser };
+
+    return await response.json();
   } catch (error) {
     console.error("Error setting new password:", error);
     return { success: false, message: "Failed to set new password." };

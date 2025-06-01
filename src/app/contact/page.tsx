@@ -102,7 +102,7 @@ export default function ContactPage() {
             <Card className="shadow-lg overflow-hidden h-full min-h-[300px] md:min-h-full">
               <div className="relative w-full h-full">
               <Image 
-                src="https://placehold.co/600x400.png" 
+                src="/images/pexels-victorfreitas-841130.jpg"
                 alt="Map showing gym location" 
                 fill
                 style={{ objectFit: "cover" }}

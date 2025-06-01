@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,11 +23,13 @@ export default function LeadCaptureSection() {
           </div>
           <div className="md:order-1 relative h-80 w-full md:h-[400px] rounded-lg overflow-hidden shadow-xl">
              <Image
-              src="https://placehold.co/600x400.png"
-              alt="Group of diverse people in a fitness class"
+              src="/images/pexels-victorfreitas-841130.jpg"
+              alt="Modern gym facility with equipment"
               fill
               style={{ objectFit: "cover" }}
-              data-ai-hint="fitness class diverse"
+              priority
+              sizes="(max-width: 768px) 100vw, 50vw"
+              className="hover:scale-105 transition-transform duration-300"
             />
           </div>
         </div>
