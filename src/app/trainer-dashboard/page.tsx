@@ -1,26 +1,68 @@
 
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserCircle, CalendarClock, ClipboardList, LogOut } from 'lucide-react';
+import { UserCircle, CalendarClock, ClipboardList, LogOut, Clock as TimeIcon, Users as ParticipantsIcon, Users2 as CapacityIcon } from 'lucide-react';
+import { useToast } from "@/hooks/use-toast";
+import { getTrainerSchedule } from '@/app/actions/trainerActions';
+import type { GymClassWithDetails } from '@/app/actions/classActions';
+import type { DayOfWeek as PrismaDayOfWeek } from '@prisma/client'; // For sorting
+
+const daysOrder: PrismaDayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
 export default function TrainerDashboardPage() {
-  const { currentUser, role, isLoading, signOutAndRedirect, isAuthenticated } = useAuth();
+  const { currentUser, role, isLoading: authIsLoading, signOutAndRedirect, isAuthenticated } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
+
+  const [assignedClasses, setAssignedClasses] = useState<GymClassWithDetails[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  const fetchTrainerData = useCallback(async () => {
+    if (currentUser && isAuthenticated && role === 'trainer') {
+      setIsDataLoading(true);
+      try {
+        const scheduleData = await getTrainerSchedule(currentUser.id);
+        // Client-side sorting for DayOfWeek
+        scheduleData.sort((a, b) => {
+            const dayAIndex = daysOrder.indexOf(a.dayOfWeek);
+            const dayBIndex = daysOrder.indexOf(b.dayOfWeek);
+            if (dayAIndex === dayBIndex) {
+                return a.startTime.localeCompare(b.startTime);
+            }
+            return dayAIndex - dayBIndex;
+        });
+        setAssignedClasses(scheduleData);
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to load your schedule.", variant: "destructive" });
+        console.error("Failed to load trainer schedule:", error);
+      } finally {
+        setIsDataLoading(false);
+      }
+    } else {
+      setAssignedClasses([]);
+      setIsDataLoading(false);
+    }
+  }, [currentUser, isAuthenticated, role, toast]);
 
   useEffect(() => {
-    if (!isLoading && (!isAuthenticated || role !== 'trainer')) {
-      router.push('/signin');
+    if (!authIsLoading) {
+      if (!isAuthenticated || role !== 'trainer') {
+        router.push('/signin');
+      } else {
+        fetchTrainerData();
+      }
     }
-  }, [isLoading, isAuthenticated, role, router]);
+  }, [authIsLoading, isAuthenticated, role, router, fetchTrainerData]);
 
-  if (isLoading) {
+
+  if (authIsLoading || isDataLoading) {
     return <div className="flex justify-center items-center min-h-screen"><p>Loading dashboard...</p></div>;
   }
 
@@ -32,7 +74,7 @@ export default function TrainerDashboardPage() {
     <div className="flex flex-col min-h-screen">
       <Navbar />
       <main className="flex-grow py-8 md:py-12 bg-background">
-        <div className="container mx-auto max-w-screen-md px-4 sm:px-6 lg:px-8">
+        <div className="container mx-auto max-w-screen-lg px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center mb-8">
             <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
               Trainer <span className="text-primary">Dashboard</span>
@@ -58,27 +100,52 @@ export default function TrainerDashboardPage() {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card className="shadow-lg">
+            <Card className="shadow-lg md:col-span-2"> {/* Make schedule card span full width on medium screens up */}
               <CardHeader>
                 <CardTitle className="font-headline text-xl flex items-center">
-                  <CalendarClock className="mr-2 h-6 w-6 text-accent" /> My Schedule
+                  <CalendarClock className="mr-2 h-6 w-6 text-accent" /> My Upcoming Classes
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground mb-4">View your upcoming classes and appointments.</p>
-                <Button disabled className="w-full">View Schedule (Coming Soon)</Button>
+                {assignedClasses.length === 0 ? (
+                  <p className="text-muted-foreground">You have no classes assigned to you currently.</p>
+                ) : (
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                    {assignedClasses.map(gymClass => (
+                      <Card key={gymClass.id} className="bg-card/80 p-4">
+                        <CardTitle className="text-lg font-semibold text-foreground">{gymClass.serviceTitle}</CardTitle>
+                        <CardDescription className="text-sm text-muted-foreground">
+                          {gymClass.dayOfWeek}
+                        </CardDescription>
+                        <div className="mt-2 space-y-1 text-sm">
+                          <p className="flex items-center text-muted-foreground">
+                            <TimeIcon className="mr-2 h-4 w-4" /> {gymClass.startTime} - {gymClass.endTime}
+                          </p>
+                          <p className="flex items-center text-muted-foreground">
+                            <ParticipantsIcon className="mr-2 h-4 w-4" /> Booked: {gymClass._count?.bookings ?? 0}
+                          </p>
+                           <p className="flex items-center text-muted-foreground">
+                            <CapacityIcon className="mr-2 h-4 w-4" /> Capacity: {gymClass.capacity}
+                          </p>
+                        </div>
+                        {/* Future: Could add a button/link to view class attendees if that feature is built */}
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            <Card className="shadow-lg">
+            {/* This can remain a placeholder or be developed next */}
+            <Card className="shadow-lg md:col-span-2">
               <CardHeader>
                 <CardTitle className="font-headline text-xl flex items-center">
-                  <ClipboardList className="mr-2 h-6 w-6 text-accent" /> Assigned Classes/Clients
+                  <ClipboardList className="mr-2 h-6 w-6 text-accent" /> Assigned Clients
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-muted-foreground mb-4">Manage details for your assigned classes and clients.</p>
-                <Button disabled className="w-full">Manage Assignments (Coming Soon)</Button>
+                <p className="text-muted-foreground mb-4">Manage details for your assigned clients or personal training sessions.</p>
+                <Button disabled className="w-full">View/Manage Clients (Coming Soon)</Button>
               </CardContent>
             </Card>
           </div>
@@ -89,3 +156,4 @@ export default function TrainerDashboardPage() {
     </div>
   );
 }
+

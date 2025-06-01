@@ -2,7 +2,8 @@
 'use server';
 
 import prisma from '@/lib/prisma';
-import type { Trainer, User } from '@prisma/client';
+import type { Trainer, User, GymClass, DayOfWeek as PrismaDayOfWeek } from '@prisma/client';
+import type { GymClassWithDetails } from '@/app/actions/classActions'; // Re-use this type
 
 // This is a placeholder. In a real app, use a strong, random password generator
 // and a secure way to communicate this to the trainer or force a reset.
@@ -88,9 +89,10 @@ export async function updateTrainer(id: string, data: { name: string; specialty:
         name: data.name,
         specialty: data.specialty,
         imageUrl: data.imageUrl || 'https://placehold.co/300x300.png',
-        user: {
+        user: { // This assumes the trainer's name on the User model should also be updated.
           update: {
-            name: data.name,
+            where: { id: trainerToUpdate.userId }, // Ensure we update the correct user.
+            data: { name: data.name },
           },
         },
       },
@@ -107,15 +109,62 @@ export async function updateTrainer(id: string, data: { name: string; specialty:
 
 export async function deleteTrainer(id: string): Promise<{ success: boolean; message: string }> {
   try {
+    // Find the trainer to get the userId before deleting.
+    // This is important if you want to disassociate or handle the User account separately.
+    // For now, we just delete the Trainer profile. Associated GymClasses' trainerId will be set to null due to schema's onDelete: SetNull.
+    const trainer = await prisma.trainer.findUnique({ where: { id } });
+    if (!trainer) {
+        return { success: false, message: 'Trainer not found or already deleted.' };
+    }
+    
     await prisma.trainer.delete({
       where: { id },
     });
+    // Note: The User account (trainer.userId) is NOT deleted here.
+    // It could be an admin decision whether to delete the User account or just the Trainer role/profile.
     return { success: true, message: 'Trainer profile deleted successfully. The associated user account still exists.' };
   } catch (error) {
     console.error("Error deleting trainer:", error);
-    if (error instanceof Error && 'code' in error && (error as any).code === 'P2025') {
+    if (error instanceof Error && 'code' in error && (error as any).code === 'P2025') { // Record to delete does not exist.
         return { success: false, message: 'Trainer not found or already deleted.' };
     }
     return { success: false, message: 'Failed to delete trainer.' };
+  }
+}
+
+
+export async function getTrainerSchedule(userId: string): Promise<GymClassWithDetails[]> {
+  try {
+    const trainer = await prisma.trainer.findUnique({
+      where: { userId: userId },
+    });
+
+    if (!trainer) {
+      // If no trainer profile is found for this user, they have no schedule as a trainer.
+      return [];
+    }
+
+    const classes = await prisma.gymClass.findMany({
+      where: { trainerId: trainer.id },
+      include: {
+        trainer: { // Though we're fetching for a specific trainer, including it for consistency with GymClassWithDetails
+          select: { name: true },
+        },
+        _count: {
+          select: { bookings: true },
+        },
+      },
+      orderBy: [
+        // Prisma doesn't directly support custom enum sort order.
+        // Client-side sorting for DayOfWeek will be needed if specific order is critical beyond alphabetical.
+        { dayOfWeek: 'asc' },
+        { startTime: 'asc' },
+      ],
+    });
+    // Map to include bookedUserIds (empty array) if GymClassWithDetails expects it, for type consistency.
+    return classes.map(c => ({ ...c, bookedUserIds: [] }));
+  } catch (error) {
+    console.error("Error fetching trainer's schedule:", error);
+    return [];
   }
 }
