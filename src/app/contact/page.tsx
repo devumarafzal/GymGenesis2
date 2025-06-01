@@ -104,8 +104,8 @@ export default function ContactPage() {
               <Image 
                 src="https://placehold.co/600x400.png" 
                 alt="Map showing gym location" 
-                layout="fill"
-                objectFit="cover"
+                fill
+                style={{ objectFit: "cover" }}
                 data-ai-hint="map location"
               />
               </div>

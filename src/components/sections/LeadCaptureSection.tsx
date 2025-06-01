@@ -26,8 +26,8 @@ export default function LeadCaptureSection() {
              <Image
               src="https://placehold.co/600x400.png"
               alt="Group of diverse people in a fitness class"
-              layout="fill"
-              objectFit="cover"
+              fill
+              style={{ objectFit: "cover" }}
               data-ai-hint="fitness class diverse"
             />
           </div>

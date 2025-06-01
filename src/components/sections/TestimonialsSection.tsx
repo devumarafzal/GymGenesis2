@@ -40,11 +40,11 @@ export default function TestimonialsSection() {
 
   const handlePrev = useCallback(() => {
     setCurrentIndex((prevIndex) => (prevIndex - 1 + testimonials.length) % testimonials.length);
-  }, [testimonials.length]);
+  }, []); // Updated dependency array
 
   const handleNext = useCallback(() => {
     setCurrentIndex((prevIndex) => (prevIndex + 1) % testimonials.length);
-  }, [testimonials.length]);
+  }, []); // Updated dependency array
 
   useEffect(() => {
     if (isHovered || testimonials.length <= 1) return;
@@ -98,8 +98,8 @@ export default function TestimonialsSection() {
                   <Image
                     src={testimonials[currentIndex].avatarUrl}
                     alt={testimonials[currentIndex].name}
-                    layout="fill"
-                    objectFit="cover"
+                    fill
+                    style={{ objectFit: "cover" }}
                     data-ai-hint={testimonials[currentIndex].dataAiHint}
                   />
                 </div>

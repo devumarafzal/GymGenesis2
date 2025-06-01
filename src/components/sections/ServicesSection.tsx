@@ -124,8 +124,8 @@ export default function ServicesSection() {
                 <Image
                   src={trainer.imageUrl}
                   alt={trainer.name}
-                  layout="fill"
-                  objectFit="cover"
+                  fill
+                  style={{ objectFit: "cover" }}
                   data-ai-hint={trainer.dataAiHint}
                 />
               </div>

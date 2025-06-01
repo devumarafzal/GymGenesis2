@@ -10,10 +10,11 @@ export default function HeroSection() {
         <Image
           src="https://placehold.co/1920x1080.png"
           alt="Fitness enthusiasts working out in a modern gym"
-          layout="fill"
-          objectFit="cover"
+          fill
+          style={{ objectFit: "cover" }}
           className="opacity-30"
           data-ai-hint="gym fitness"
+          priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent"></div>
       </div>
