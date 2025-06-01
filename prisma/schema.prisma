@@ -14,45 +14,50 @@ model User {
   email         String    @unique
   passwordHash  String
   role          Role      @default(MEMBER)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
   bookings      Booking[]
-  trainerProfile Trainer? // User can have a trainer profile (one-to-one)
+  trainerProfile Trainer? // Optional: A user might be a trainer
 
   @@index([email])
 }
 
 model Trainer {
-  id          String     @id @default(cuid())
-  name        String     // Added: Publicly displayed name for the trainer
-  specialty   String
-  imageUrl    String?
-  userId      String     @unique // Link to the User model
-  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade) // If User is deleted, Trainer profile is also deleted
-  classes     GymClass[]
+  id        String     @id @default(cuid())
+  name      String // Publicly displayed trainer name
+  specialty String
+  imageUrl  String
+  userId    String     @unique // Link to the User model for login, etc.
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  classes   GymClass[]
+
+  @@index([userId])
 }
 
 model GymClass {
-  id           String    @id @default(cuid())
-  serviceTitle String
-  dayOfWeek    DayOfWeek
-  startTime    String // Format "HH:mm"
-  endTime      String // Format "HH:mm"
-  capacity     Int
-  trainerId    String
-  trainer      Trainer   @relation(fields: [trainerId], references: [id], onDelete: Restrict) // Prevent deleting trainer if they have classes
-  bookings     Booking[]
+  id            String    @id @default(cuid())
+  serviceTitle  String
+  dayOfWeek     DayOfWeek
+  startTime     String // Format "HH:mm"
+  endTime       String // Format "HH:mm"
+  capacity      Int
+  trainerId     String?   // A class might temporarily have no trainer
+  trainer       Trainer?  @relation(fields: [trainerId], references: [id], onDelete: SetNull)
+  bookings      Booking[]
 
   @@index([trainerId])
+  @@index([dayOfWeek])
 }
 
 model Booking {
   id          String   @id @default(cuid())
   userId      String
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade) // If User is deleted, their bookings are also deleted
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   classId     String
-  class       GymClass @relation(fields: [classId], references: [id], onDelete: Cascade) // If Class is deleted, bookings for it are also deleted
+  gymClass    GymClass @relation(fields: [classId], references: [id], onDelete: Cascade)
   bookingTime DateTime @default(now())
 
-  @@unique([userId, classId]) // A user can only book a specific class once
+  @@unique([userId, classId]) // A user can book a specific class only once
   @@index([userId])
   @@index([classId])
 }
@@ -64,11 +69,11 @@ enum Role {
 }
 
 enum DayOfWeek {
-  MONDAY
-  TUESDAY
-  WEDNESDAY
-  THURSDAY
-  FRIDAY
-  SATURDAY
-  SUNDAY
+  Monday
+  Tuesday
+  Wednesday
+  Thursday
+  Friday
+  Saturday
+  Sunday
 }

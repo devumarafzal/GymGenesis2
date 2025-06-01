@@ -1,15 +1,14 @@
 
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { UserCircle, CalendarDays, LogOut, XCircle, Clock, User as TrainerIcon, Edit } from 'lucide-react';
-import type { GymClass, Trainer } from '@/app/admin/page';
+import { UserCircle, CalendarDays, LogOut, XCircle, Clock, Edit, User as TrainerIcon } from 'lucide-react';
 import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -17,9 +16,8 @@ import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 
-interface BookingDetails extends GymClass {
-  trainerName: string;
-}
+import { getBookingsForUser, cancelBooking as cancelBookingAction, type BookingWithDetails } from '@/app/actions/bookingActions';
+import type { DayOfWeek as PrismaDayOfWeek } from '@prisma/client';
 
 const nameFormSchema = z.object({
   name: z.string().min(2, { message: "Name must be at least 2 characters." }),
@@ -34,14 +32,15 @@ const passwordFormSchema = z.object({
   path: ["confirmNewPassword"],
 });
 
+const daysOrder: PrismaDayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 
 export default function MemberDashboardPage() {
-  const { currentUser, role, isLoading, signOutAndRedirect, isAuthenticated, updateName, changePassword } = useAuth();
+  const { currentUser, role, isLoading: authIsLoading, signOutAndRedirect, isAuthenticated, updateName, changePassword } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [myBookings, setMyBookings] = useState<BookingDetails[]>([]);
-  const [allClasses, setAllClasses] = useState<GymClass[]>([]);
+  const [myBookings, setMyBookings] = useState<BookingWithDetails[]>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
   const nameForm = useForm<z.infer<typeof nameFormSchema>>({
@@ -60,84 +59,63 @@ export default function MemberDashboardPage() {
     }
   }, [currentUser, nameForm]);
 
-
-  useEffect(() => {
-    if (!isLoading && (!isAuthenticated || role !== 'member')) {
-      router.push('/signin');
-    }
-  }, [isLoading, isAuthenticated, role, router]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && currentUser && role === 'member') {
-      const storedClasses = localStorage.getItem('adminClasses');
-      const storedTrainers = localStorage.getItem('adminTrainers');
-      
-      const currentClasses: GymClass[] = storedClasses ? JSON.parse(storedClasses).map((cls: any) => ({
-        ...cls,
-        bookedUserIds: cls.bookedUserIds || []
-      })) : [];
-      // const currentTrainers: Trainer[] = storedTrainers ? JSON.parse(storedTrainers) : [];
-      
-      setAllClasses(currentClasses);
-      // setAllTrainers(currentTrainers); // trainers not directly used for booking details display logic for now
-      
-      const userBookings = currentClasses
-        .filter(cls => cls.bookedUserIds.includes(currentUser.id))
-        .map(cls => {
-          // For simplicity, not fetching full trainer details again here if not strictly necessary
-          // Trainer details could be passed or fetched if needed.
-          const trainerName = localStorage.getItem('adminTrainers') ? 
-                              (JSON.parse(localStorage.getItem('adminTrainers')!) as Trainer[]).find(t => t.id === cls.trainerId)?.name || "N/A"
-                              : "N/A";
-          return {
-            ...cls,
-            trainerName: trainerName,
-          };
-        })
-        .sort((a,b) => {
-             const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-             if(dayOrder.indexOf(a.dayOfWeek) === dayOrder.indexOf(b.dayOfWeek)){
-                 return a.startTime.localeCompare(b.startTime);
-             }
-             return dayOrder.indexOf(a.dayOfWeek) - dayOrder.indexOf(b.dayOfWeek);
+  const fetchMemberData = useCallback(async () => {
+    if (currentUser && isAuthenticated) {
+      setIsDataLoading(true);
+      try {
+        const bookingsData = await getBookingsForUser(currentUser.id);
+        // Sort bookings client-side by day of week then start time
+        bookingsData.sort((a, b) => {
+            const dayAIndex = daysOrder.indexOf(a.gymClass.dayOfWeek);
+            const dayBIndex = daysOrder.indexOf(b.gymClass.dayOfWeek);
+            if (dayAIndex === dayBIndex) {
+                return a.gymClass.startTime.localeCompare(b.gymClass.startTime);
+            }
+            return dayAIndex - dayBIndex;
         });
-
-      setMyBookings(userBookings);
+        setMyBookings(bookingsData);
+      } catch (error) {
+        toast({ title: "Error", description: "Failed to load your bookings.", variant: "destructive" });
+        console.error("Failed to load member bookings:", error);
+      } finally {
+        setIsDataLoading(false);
+      }
+    } else {
+      // Not authenticated or no current user, clear data and stop loading
+      setMyBookings([]);
       setIsDataLoading(false);
     }
-  }, [currentUser, role, isAuthenticated]);
+  }, [currentUser, isAuthenticated, toast]);
+
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && !isDataLoading && allClasses.length > 0) {
-      localStorage.setItem('adminClasses', JSON.stringify(allClasses));
+    if (!authIsLoading && (!isAuthenticated || role !== 'member')) {
+      router.push('/signin');
+    } else if (isAuthenticated && role === 'member') {
+      fetchMemberData();
     }
-  }, [allClasses, isDataLoading]);
+  }, [authIsLoading, isAuthenticated, role, router, fetchMemberData]);
 
-  const handleCancelBooking = (classIdToCancel: string) => {
+
+  const handleCancelBooking = async (bookingId: string) => {
     if (!currentUser) return;
 
-    setAllClasses(prevAllClasses => {
-      const updatedClasses = prevAllClasses.map(cls => {
-        if (cls.id === classIdToCancel) {
-          return {
-            ...cls,
-            bookedUserIds: cls.bookedUserIds.filter(userId => userId !== currentUser.id)
-          };
-        }
-        return cls;
+    const result = await cancelBookingAction(bookingId, currentUser.id);
+
+    if (result.success) {
+      toast({
+        title: "Booking Cancelled",
+        description: "Your booking has been successfully cancelled.",
       });
-      
-      setMyBookings(prevMyBookings => prevMyBookings.filter(booking => booking.id !== classIdToCancel));
-      
-      setTimeout(() => {
-        toast({
-          title: "Booking Cancelled",
-          description: "Your booking has been successfully cancelled.",
-        });
-      }, 0);
-      
-      return updatedClasses; 
-    });
+      // Refresh bookings
+      fetchMemberData();
+    } else {
+      toast({
+        title: "Cancellation Failed",
+        description: result.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const onNameSubmit = async (values: z.infer<typeof nameFormSchema>) => {
@@ -159,8 +137,7 @@ export default function MemberDashboardPage() {
     }
   };
 
-
-  if (isLoading || isDataLoading) {
+  if (authIsLoading || isDataLoading) {
     return <div className="flex justify-center items-center min-h-screen"><p>Loading dashboard...</p></div>;
   }
 
@@ -198,7 +175,6 @@ export default function MemberDashboardPage() {
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-             {/* Profile Settings Card */}
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="font-headline text-xl flex items-center">
@@ -206,7 +182,6 @@ export default function MemberDashboardPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Edit Name Form */}
                 <Form {...nameForm}>
                   <form onSubmit={nameForm.handleSubmit(onNameSubmit)} className="space-y-4">
                     <FormField
@@ -227,8 +202,6 @@ export default function MemberDashboardPage() {
                     </Button>
                   </form>
                 </Form>
-
-                {/* Change Password Form */}
                 <Form {...passwordForm}>
                   <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-4">
                     <FormField
@@ -278,7 +251,6 @@ export default function MemberDashboardPage() {
               </CardContent>
             </Card>
 
-            {/* My Bookings Card */}
             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="font-headline text-xl flex items-center">
@@ -294,10 +266,10 @@ export default function MemberDashboardPage() {
                       <Card key={booking.id} className="bg-card/50 p-4">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h4 className="font-semibold text-lg text-foreground">{booking.serviceTitle}</h4>
-                            <p className="text-sm text-muted-foreground flex items-center"><TrainerIcon className="mr-1.5 h-4 w-4" /> {booking.trainerName}</p>
-                            <p className="text-sm text-muted-foreground flex items-center"><CalendarDays className="mr-1.5 h-4 w-4" /> {booking.dayOfWeek}</p>
-                            <p className="text-sm text-muted-foreground flex items-center"><Clock className="mr-1.5 h-4 w-4" /> {booking.startTime} - {booking.endTime}</p>
+                            <h4 className="font-semibold text-lg text-foreground">{booking.gymClass.serviceTitle}</h4>
+                            <p className="text-sm text-muted-foreground flex items-center"><TrainerIcon className="mr-1.5 h-4 w-4" /> {booking.gymClass.trainer?.name || "N/A (Unassigned)"}</p>
+                            <p className="text-sm text-muted-foreground flex items-center"><CalendarDays className="mr-1.5 h-4 w-4" /> {booking.gymClass.dayOfWeek}</p>
+                            <p className="text-sm text-muted-foreground flex items-center"><Clock className="mr-1.5 h-4 w-4" /> {booking.gymClass.startTime} - {booking.gymClass.endTime}</p>
                           </div>
                           <Button 
                             variant="ghost" 

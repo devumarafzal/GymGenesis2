@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,218 +10,223 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { PlusCircle, Trash2, Edit3, Users, BookOpen, LogOut, Clock, Users2, CalendarDays } from 'lucide-react';
+import { PlusCircle, Trash2, Edit3, Users, CalendarDays, LogOut } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { services as serviceDefinitions } from '@/components/sections/ServicesSection';
-import type { SeedTrainer } from '@/components/sections/ServicesSection';
-import { initialSeedTrainers } from '@/components/sections/ServicesSection';
+import { services as serviceDefinitions } from '@/components/sections/ServicesSection'; // Static service types
+import type { DayOfWeek as PrismaDayOfWeek } from '@prisma/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from "@/hooks/use-toast";
 
+import { addTrainer, getTrainers, updateTrainer, deleteTrainer, type TrainerWithUserDetails } from '@/app/actions/trainerActions';
+import { addClass, getClasses, updateClass, deleteClass, type GymClassWithDetails } from '@/app/actions/classActions';
 
-export interface Trainer {
-  id: string;
-  name: string;
-  specialty: string;
-  imageUrl: string;
-}
+// Re-defining local types to match what server actions will return or what UI expects
+export interface UITrainer extends TrainerWithUserDetails {}
+export interface UIGymClass extends GymClassWithDetails {}
 
 export type DayOfWeek = 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
-
 const daysOfWeek: DayOfWeek[] = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-export interface GymClass {
-  id: string;
-  serviceTitle: string;
-  trainerId: string;
-  dayOfWeek: DayOfWeek;
-  startTime: string; // e.g., "09:00"
-  endTime: string;   // e.g., "10:00"
-  capacity: number;
-  bookedUserIds: string[]; // Array of user IDs who booked this class
-}
 
 export default function AdminPage() {
-  const { currentUser, role, isLoading, signOutAndRedirect, isAuthenticated } = useAuth();
+  const { currentUser, role, isLoading: authIsLoading, signOutAndRedirect, isAuthenticated } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [trainers, setTrainers] = useState<Trainer[]>([]);
-  const [classes, setClasses] = useState<GymClass[]>([]);
+  const [trainers, setTrainers] = useState<UITrainer[]>([]);
+  const [classes, setClasses] = useState<UIGymClass[]>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
 
   const [trainerName, setTrainerName] = useState('');
+  const [trainerEmail, setTrainerEmail] = useState(''); // New field for trainer user account
   const [trainerSpecialty, setTrainerSpecialty] = useState('');
   const [trainerImageUrl, setTrainerImageUrl] = useState('');
-  const [editingTrainer, setEditingTrainer] = useState<Trainer | null>(null);
+  const [editingTrainer, setEditingTrainer] = useState<UITrainer | null>(null);
 
   const [selectedService, setSelectedService] = useState<string>('');
-  const [selectedTrainer, setSelectedTrainer] = useState<string>('');
+  const [selectedTrainerId, setSelectedTrainerId] = useState<string>('');
   const [classDayOfWeek, setClassDayOfWeek] = useState<DayOfWeek>('Monday');
   const [classStartTime, setClassStartTime] = useState<string>('');
   const [classEndTime, setClassEndTime] = useState<string>('');
   const [classCapacity, setClassCapacity] = useState<number | string>('');
-  const [editingClass, setEditingClass] = useState<GymClass | null>(null);
+  const [editingClass, setEditingClass] = useState<UIGymClass | null>(null);
+
+  const fetchAdminData = useCallback(async () => {
+    setIsDataLoading(true);
+    try {
+      const [trainersData, classesData] = await Promise.all([
+        getTrainers(),
+        getClasses(),
+      ]);
+      setTrainers(trainersData);
+      setClasses(classesData);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to load admin data.", variant: "destructive" });
+      console.error("Failed to load admin data:", error);
+    } finally {
+      setIsDataLoading(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
-    if (!isLoading && (!isAuthenticated || role !== 'admin')) {
+    if (!authIsLoading && (!isAuthenticated || role !== 'admin')) {
       router.push('/signin');
+    } else if (role === 'admin') {
+      fetchAdminData();
     }
-  }, [isLoading, isAuthenticated, role, router]);
+  }, [authIsLoading, isAuthenticated, role, router, fetchAdminData]);
 
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && role === 'admin') {
-      const storedTrainers = localStorage.getItem('adminTrainers');
-      if (storedTrainers) {
-        setTrainers(JSON.parse(storedTrainers));
-      } else {
-        const trainersToSeed = initialSeedTrainers.map((seed: SeedTrainer) => ({
-          id: seed.id,
-          name: seed.name,
-          specialty: seed.specialty,
-          imageUrl: seed.imageUrl,
-        }));
-        setTrainers(trainersToSeed);
-      }
-
-      const storedClasses = localStorage.getItem('adminClasses');
-      if (storedClasses) {
-        // Ensure existing classes have the bookedUserIds field
-        const parsedClasses = JSON.parse(storedClasses).map((cls: any) => ({
-          ...cls,
-          bookedUserIds: cls.bookedUserIds || [] 
-        }));
-        setClasses(parsedClasses);
-      }
-    }
-  }, [role]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && role === 'admin' && trainers.length > 0) {
-        localStorage.setItem('adminTrainers', JSON.stringify(trainers));
-    }
-  }, [trainers, role]);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && role === 'admin') { // Allow saving empty classes array after initial load
-        localStorage.setItem('adminClasses', JSON.stringify(classes));
-    }
-  }, [classes, role]);
-
-  const handleAddOrUpdateTrainer = () => {
-    if (!trainerName || !trainerSpecialty) {
-      toast({ title: "Error", description: "Trainer name and specialty are required.", variant: "destructive"});
-      return;
-    }
-    if (editingTrainer) {
-      setTrainers(trainers.map(t => t.id === editingTrainer.id ? { ...t, name: trainerName, specialty: trainerSpecialty, imageUrl: trainerImageUrl || 'https://placehold.co/300x300.png' } : t));
-      toast({ title: "Success", description: "Trainer updated successfully."});
-      setEditingTrainer(null);
-    } else {
-      const newTrainer: Trainer = {
-        id: Date.now().toString(),
-        name: trainerName,
-        specialty: trainerSpecialty,
-        imageUrl: trainerImageUrl || 'https://placehold.co/300x300.png',
-      };
-      setTrainers([...trainers, newTrainer]);
-      toast({ title: "Success", description: "Trainer added successfully."});
-    }
+  const resetTrainerForm = () => {
     setTrainerName('');
+    setTrainerEmail('');
     setTrainerSpecialty('');
     setTrainerImageUrl('');
+    setEditingTrainer(null);
   };
 
-  const handleEditTrainer = (trainer: Trainer) => {
+  const handleAddOrUpdateTrainer = async () => {
+    if (!trainerName || !trainerSpecialty || (!editingTrainer && !trainerEmail)) {
+      toast({ title: "Error", description: "Trainer name, email (for new), and specialty are required.", variant: "destructive" });
+      return;
+    }
+    
+    setIsDataLoading(true); // For visual feedback
+    if (editingTrainer) {
+      const result = await updateTrainer(editingTrainer.id, { name: trainerName, specialty: trainerSpecialty, imageUrl: trainerImageUrl });
+      if (result.success && result.trainer) {
+        setTrainers(trainers.map(t => t.id === result.trainer!.id ? result.trainer! : t));
+        toast({ title: "Success", description: "Trainer updated successfully." });
+        resetTrainerForm();
+      } else {
+        toast({ title: "Error", description: result.message, variant: "destructive" });
+      }
+    } else {
+      const result = await addTrainer({ name: trainerName, email: trainerEmail, specialty: trainerSpecialty, imageUrl: trainerImageUrl });
+      if (result.success && result.trainer) {
+        setTrainers([...trainers, result.trainer]);
+        toast({ title: "Success", description: "Trainer added successfully. Default password is 'changeme'." });
+        resetTrainerForm();
+      } else {
+        toast({ title: "Error", description: result.message, variant: "destructive" });
+      }
+    }
+    setIsDataLoading(false);
+  };
+
+  const handleEditTrainer = (trainer: UITrainer) => {
     setEditingTrainer(trainer);
     setTrainerName(trainer.name);
+    setTrainerEmail(trainer.user?.email || ''); // Email is part of User, might not be editable here directly once set
     setTrainerSpecialty(trainer.specialty);
     setTrainerImageUrl(trainer.imageUrl);
   };
 
-  const handleRemoveTrainer = (id: string) => {
-    // Before removing trainer, unassign them from classes but keep the classes
-    setClasses(prevClasses => prevClasses.map(c => c.trainerId === id ? { ...c, trainerId: '' } : c));
-    setTrainers(trainers.filter(trainer => trainer.id !== id));
-    toast({ title: "Success", description: "Trainer removed and unassigned from classes.", variant: "destructive"});
+  const handleRemoveTrainer = async (id: string) => {
+    setIsDataLoading(true);
+    // Unassign trainer from classes on the client-side for immediate UI update before DB call,
+    // though DB schema with SetNull should handle this.
+    // This client-side change is mostly for smoother UX.
+    setClasses(prevClasses => prevClasses.map(c => c.trainerId === id ? { ...c, trainerId: null, trainer: null } : c));
+
+    const result = await deleteTrainer(id);
+    if (result.success) {
+      setTrainers(trainers.filter(trainer => trainer.id !== id));
+      toast({ title: "Success", description: "Trainer removed and unassigned from classes.", variant: "destructive" });
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
+      // If deletion failed, refresh data to reflect actual DB state
+      fetchAdminData();
+    }
+    setIsDataLoading(false);
   };
 
   const resetClassForm = () => {
     setSelectedService('');
-    setSelectedTrainer('');
+    setSelectedTrainerId('');
     setClassDayOfWeek('Monday');
     setClassStartTime('');
     setClassEndTime('');
     setClassCapacity('');
     setEditingClass(null);
-  }
+  };
 
-  const handleAddOrUpdateClass = () => {
-    if (!selectedService || !selectedTrainer || !classDayOfWeek || !classStartTime || !classEndTime || !classCapacity) {
-      toast({ title: "Error", description: "All class fields are required.", variant: "destructive"});
+  const handleAddOrUpdateClass = async () => {
+    if (!selectedService || !classDayOfWeek || !classStartTime || !classEndTime || !classCapacity) {
+      toast({ title: "Error", description: "Service, day, times, and capacity are required.", variant: "destructive" });
       return;
     }
     if (Number(classCapacity) <= 0) {
-        toast({ title: "Error", description: "Capacity must be greater than 0.", variant: "destructive"});
-        return;
+      toast({ title: "Error", description: "Capacity must be greater than 0.", variant: "destructive" });
+      return;
     }
-
-    // Validate start and end times
     if (classStartTime >= classEndTime) {
-        toast({ title: "Error", description: "End time must be after start time.", variant: "destructive"});
-        return;
+      toast({ title: "Error", description: "End time must be after start time.", variant: "destructive" });
+      return;
     }
 
-    const classData: Omit<GymClass, 'id' | 'bookedUserIds'> = {
-        serviceTitle: selectedService,
-        trainerId: selectedTrainer,
-        dayOfWeek: classDayOfWeek,
-        startTime: classStartTime,
-        endTime: classEndTime,
-        capacity: Number(classCapacity),
+    const classData = {
+      serviceTitle: selectedService,
+      trainerId: selectedTrainerId || null, // Allow null trainerId
+      dayOfWeek: classDayOfWeek as PrismaDayOfWeek,
+      startTime: classStartTime,
+      endTime: classEndTime,
+      capacity: Number(classCapacity),
     };
 
+    setIsDataLoading(true);
     if (editingClass) {
-        // When editing, preserve existing bookings unless capacity is drastically reduced.
-        // For simplicity, we don't remove bookings if capacity shrinks below current bookings here.
-        // This should be handled by more complex logic or UI warnings in a real app.
-        setClasses(classes.map(c => c.id === editingClass.id ? { ...c, ...classData, capacity: Number(classCapacity) } : c));
-        toast({ title: "Success", description: "Class updated successfully."});
+      const result = await updateClass(editingClass.id, classData);
+      if (result.success && result.class) {
+        setClasses(classes.map(c => c.id === result.class!.id ? result.class! : c));
+        toast({ title: "Success", description: "Class updated successfully." });
+        resetClassForm();
+      } else {
+        toast({ title: "Error", description: result.message, variant: "destructive" });
+      }
     } else {
-        const newClass: GymClass = {
-            id: Date.now().toString(),
-            ...classData,
-            bookedUserIds: [] // Initialize with no bookings
-        };
-        setClasses([...classes, newClass]);
-        toast({ title: "Success", description: "Class added successfully."});
+      const result = await addClass(classData);
+      if (result.success && result.class) {
+        setClasses([...classes, result.class]);
+        toast({ title: "Success", description: "Class added successfully." });
+        resetClassForm();
+      } else {
+        toast({ title: "Error", description: result.message, variant: "destructive" });
+      }
     }
-    resetClassForm();
+    setIsDataLoading(false);
   };
 
-  const handleEditClass = (gymClass: GymClass) => {
+  const handleEditClass = (gymClass: UIGymClass) => {
     setEditingClass(gymClass);
     setSelectedService(gymClass.serviceTitle);
-    setSelectedTrainer(gymClass.trainerId);
-    setClassDayOfWeek(gymClass.dayOfWeek);
+    setSelectedTrainerId(gymClass.trainerId || '');
+    setClassDayOfWeek(gymClass.dayOfWeek as DayOfWeek);
     setClassStartTime(gymClass.startTime);
     setClassEndTime(gymClass.endTime);
     setClassCapacity(gymClass.capacity);
   };
 
-  const handleRemoveClass = (id: string) => {
-    setClasses(classes.filter(c => c.id !== id));
-    toast({ title: "Success", description: "Class removed.", variant: "destructive"});
+  const handleRemoveClass = async (id: string) => {
+    setIsDataLoading(true);
+    const result = await deleteClass(id);
+    if (result.success) {
+      setClasses(classes.filter(c => c.id !== id));
+      toast({ title: "Success", description: "Class removed.", variant: "destructive" });
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
+    }
+    setIsDataLoading(false);
   };
 
-  const getTrainerNameById = (id: string) => {
+  const getTrainerNameById = (id: string | null | undefined) => {
+    if (!id) return 'N/A (Unassigned)';
     const trainer = trainers.find(t => t.id === id);
     return trainer ? trainer.name : 'N/A (Unassigned)';
-  }
+  };
 
-  if (isLoading) {
-    return <div className="flex justify-center items-center min-h-screen"><p>Loading...</p></div>;
+  if (authIsLoading || isDataLoading) {
+    return <div className="flex justify-center items-center min-h-screen"><p>Loading admin dashboard...</p></div>;
   }
 
   if (!currentUser || role !== 'admin') {
@@ -248,7 +253,7 @@ export default function AdminPage() {
             <Card className="shadow-xl">
               <CardHeader>
                 <CardTitle className="font-headline text-2xl flex items-center"><Users className="mr-2 h-6 w-6 text-primary" />Manage Trainers</CardTitle>
-                <CardDescription>Add, edit, or remove trainers from the system.</CardDescription>
+                <CardDescription>Add, edit, or remove trainers. Adding a trainer creates a user account with role TRAINER.</CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={(e) => { e.preventDefault(); handleAddOrUpdateTrainer(); }} className="space-y-4 mb-6">
@@ -256,6 +261,19 @@ export default function AdminPage() {
                     <Label htmlFor="trainerName">Trainer Name</Label>
                     <Input id="trainerName" value={trainerName} onChange={e => setTrainerName(e.target.value)} placeholder="e.g., Jane Doe" required />
                   </div>
+                  {!editingTrainer && ( // Only show email for new trainers
+                    <div>
+                      <Label htmlFor="trainerEmail">Trainer Email (for login)</Label>
+                      <Input id="trainerEmail" type="email" value={trainerEmail} onChange={e => setTrainerEmail(e.target.value)} placeholder="trainer@example.com" required={!editingTrainer} />
+                    </div>
+                  )}
+                   {editingTrainer && trainerEmail && (
+                    <div>
+                        <Label htmlFor="trainerEmailDisplay">Trainer Email (login)</Label>
+                        <Input id="trainerEmailDisplay" type="email" value={trainerEmail} disabled readOnly />
+                         <p className="text-xs text-muted-foreground mt-1">Email cannot be changed here. Manage users separately.</p>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="trainerSpecialty">Specialty</Label>
                     <Input id="trainerSpecialty" value={trainerSpecialty} onChange={e => setTrainerSpecialty(e.target.value)} placeholder="e.g., Yoga & Pilates" required />
@@ -268,7 +286,7 @@ export default function AdminPage() {
                     <PlusCircle className="mr-2 h-5 w-5" /> {editingTrainer ? 'Update Trainer' : 'Add Trainer'}
                   </Button>
                   {editingTrainer && (
-                    <Button variant="outline" onClick={() => { setEditingTrainer(null); setTrainerName(''); setTrainerSpecialty(''); setTrainerImageUrl('');}} className="w-full mt-2">
+                    <Button variant="outline" onClick={resetTrainerForm} className="w-full mt-2">
                       Cancel Edit
                     </Button>
                   )}
@@ -282,6 +300,7 @@ export default function AdminPage() {
                         <TableRow>
                           <TableHead>Name</TableHead>
                           <TableHead>Specialty</TableHead>
+                          <TableHead>Email (Login)</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -290,6 +309,7 @@ export default function AdminPage() {
                           <TableRow key={trainer.id}>
                             <TableCell className="font-medium">{trainer.name}</TableCell>
                             <TableCell>{trainer.specialty}</TableCell>
+                            <TableCell>{trainer.user?.email || 'N/A'}</TableCell>
                             <TableCell className="text-right space-x-2">
                               <Button variant="outline" size="icon" onClick={() => handleEditTrainer(trainer)} className="hover:text-primary">
                                 <Edit3 className="h-4 w-4" />
@@ -306,7 +326,7 @@ export default function AdminPage() {
                                   <AlertDialogHeader>
                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                      This action cannot be undone. This will permanently delete {trainer.name} and remove them from any assigned classes (trainer will be unassigned).
+                                      This action cannot be undone. This will permanently delete {trainer.name}'s trainer profile and unassign them from classes. Their user login account will remain.
                                     </AlertDialogDescription>
                                   </AlertDialogHeader>
                                   <AlertDialogFooter>
@@ -347,10 +367,11 @@ export default function AdminPage() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="selectedTrainer">Trainer</Label>
-                    <Select value={selectedTrainer} onValueChange={setSelectedTrainer} required disabled={trainers.length === 0}>
-                      <SelectTrigger id="selectedTrainer"><SelectValue placeholder={trainers.length === 0 ? "Add a trainer first" : "Select a trainer"} /></SelectTrigger>
+                    <Label htmlFor="selectedTrainerId">Trainer (Optional)</Label>
+                    <Select value={selectedTrainerId} onValueChange={setSelectedTrainerId}>
+                      <SelectTrigger id="selectedTrainerId"><SelectValue placeholder={trainers.length === 0 ? "No trainers available" : "Select a trainer (or leave unassigned)"} /></SelectTrigger>
                       <SelectContent>
+                        <SelectItem value="">Unassigned</SelectItem> {/* Option for unassigned */}
                         {trainers.map(trainer => (
                           <SelectItem key={trainer.id} value={trainer.id}>{trainer.name}</SelectItem>
                         ))}
@@ -382,7 +403,7 @@ export default function AdminPage() {
                         <Input id="classEndTime" type="time" value={classEndTime} onChange={e => setClassEndTime(e.target.value)} required />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={trainers.length === 0}>
+                  <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
                      <PlusCircle className="mr-2 h-5 w-5" /> {editingClass ? 'Update Class' : 'Add Class'}
                   </Button>
                   {editingClass && (
@@ -413,7 +434,7 @@ export default function AdminPage() {
                             <TableCell>{getTrainerNameById(gymClass.trainerId)}</TableCell>
                             <TableCell>{gymClass.dayOfWeek}</TableCell>
                             <TableCell>{gymClass.startTime} - {gymClass.endTime}</TableCell>
-                            <TableCell>{gymClass.bookedUserIds.length} / {gymClass.capacity}</TableCell>
+                            <TableCell>{gymClass._count?.bookings ?? 0} / {gymClass.capacity}</TableCell>
                             <TableCell className="text-right space-x-2">
                                <Button variant="outline" size="icon" onClick={() => handleEditClass(gymClass)} className="hover:text-primary">
                                 <Edit3 className="h-4 w-4" />
@@ -452,7 +473,7 @@ export default function AdminPage() {
             </Card>
           </div>
           <p className="text-center text-sm text-muted-foreground mt-12">
-            Note: Admin data is currently stored in browser localStorage and will persist on this device.
+            Admin data is now managed via the database.
           </p>
         </div>
       </main>
@@ -460,6 +481,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-
-    

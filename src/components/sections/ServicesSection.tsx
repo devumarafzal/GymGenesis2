@@ -1,8 +1,11 @@
 
+"use client"; // Make it a client component to use hooks for data fetching
+
 import Image from "next/image";
-import type { StaticImageData } from "next/image";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dumbbell, Zap, Users, ShieldCheck, Activity, Heart, type LucideIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getTrainers, type TrainerWithUserDetails } from "@/app/actions/trainerActions"; // Import server action
 
 interface Service {
   icon: LucideIcon;
@@ -10,7 +13,7 @@ interface Service {
   description: string;
 }
 
-// Exporting services array to be used by admin page for class creation
+// Static service definitions
 export const services: Service[] = [
   {
     icon: Dumbbell,
@@ -44,41 +47,44 @@ export const services: Service[] = [
   },
 ];
 
-// Trainers are now managed via the admin page.
-// This section displays static placeholders which also serve as seed data for the admin page.
-export interface SeedTrainer {
-  id: string;
-  name: string;
-  specialty: string;
-  imageUrl: string;
-  dataAiHint: string;
-}
-
-export const initialSeedTrainers: SeedTrainer[] = [
+// This section now fetches trainers from the database.
+// The initialSeedTrainers is no longer used for seeding by admin page.
+// It can be removed or kept for reference/testing if needed, but won't be exported.
+const placeholderTrainers: TrainerWithUserDetails[] = [ // For UI skeleton or if DB fetch fails
   {
-    id: 'trainer-seed-1',
-    name: "Alex Morgan",
-    specialty: "Strength & Conditioning",
+    id: 'placeholder-1',
+    name: "Loading Trainer...",
+    specialty: "Fetching details...",
     imageUrl: "https://placehold.co/300x300.png",
-    dataAiHint: "fitness trainer portrait"
-  },
-  {
-    id: 'trainer-seed-2',
-    name: "Jessie Chen",
-    specialty: "Yoga & Flexibility",
-    imageUrl: "https://placehold.co/300x300.png",
-    dataAiHint: "yoga instructor"
-  },
-  {
-    id: 'trainer-seed-3',
-    name: "Mike Davis",
-    specialty: "HIIT & Endurance",
-    imageUrl: "https://placehold.co/300x300.png",
-    dataAiHint: "male fitness coach"
+    userId: '', // Required by TrainerWithUserDetails
+    user: { email: '' }
   },
 ];
 
+
 export default function ServicesSection() {
+  const [trainers, setTrainers] = useState<TrainerWithUserDetails[]>([]);
+  const [isLoadingTrainers, setIsLoadingTrainers] = useState(true);
+
+  useEffect(() => {
+    async function fetchTrainers() {
+      setIsLoadingTrainers(true);
+      try {
+        const fetchedTrainers = await getTrainers();
+        setTrainers(fetchedTrainers.length > 0 ? fetchedTrainers : []); // Use empty array if no trainers
+      } catch (error) {
+        console.error("Failed to fetch trainers for services section:", error);
+        setTrainers([]); // Fallback to empty on error
+      } finally {
+        setIsLoadingTrainers(false);
+      }
+    }
+    fetchTrainers();
+  }, []);
+
+  const displayTrainers = isLoadingTrainers ? placeholderTrainers.slice(0,3) : (trainers.length > 0 ? trainers : []);
+
+
   return (
     <section id="services" className="py-16 md:py-24 bg-background">
       <div className="container mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8">
@@ -87,7 +93,7 @@ export default function ServicesSection() {
             Our Premier <span className="text-primary">Services & Classes</span>
           </h2>
           <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-            Discover a variety of ways to achieve your fitness goals at GymGenesis. Classes and trainers can be managed in the admin section.
+            Discover a variety of ways to achieve your fitness goals at GymGenesis. Class types are listed below.
           </p>
         </div>
 
@@ -107,35 +113,54 @@ export default function ServicesSection() {
           ))}
         </div>
 
-        {/* This section can be dynamically populated from admin-managed trainers in a future step */}
         <div className="mt-20 text-center">
           <h3 className="font-headline text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
             Meet Our Expert <span className="text-primary">Trainers</span>
           </h3>
           <p className="mt-3 max-w-xl mx-auto text-lg text-muted-foreground">
-            Our certified trainers are here to guide and motivate you. (Manage trainers in Admin section)
+            Our certified trainers are here to guide and motivate you. (Trainers are managed in the Admin section)
           </p>
         </div>
 
-        <div className="mt-12 grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
-          {initialSeedTrainers.map((trainer) => (
-            <Card key={trainer.name} className="text-center overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
-              <div className="relative h-64 w-full">
-                <Image
-                  src={trainer.imageUrl}
-                  alt={trainer.name}
-                  fill
-                  style={{ objectFit: "cover" }}
-                  data-ai-hint={trainer.dataAiHint}
-                />
-              </div>
-              <CardContent className="p-6">
-                <h4 className="font-headline text-lg font-semibold text-foreground">{trainer.name}</h4>
-                <p className="text-sm text-primary">{trainer.specialty}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+        {isLoadingTrainers && (
+          <div className="mt-12 grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Card key={`skeleton-${index}`} className="text-center overflow-hidden shadow-lg">
+                <div className="relative h-64 w-full bg-muted animate-pulse"></div>
+                <CardContent className="p-6">
+                  <div className="h-6 w-3/4 mx-auto bg-muted animate-pulse mb-2 rounded"></div>
+                  <div className="h-4 w-1/2 mx-auto bg-muted animate-pulse rounded"></div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {!isLoadingTrainers && displayTrainers.length === 0 && (
+            <p className="mt-12 text-center text-muted-foreground">No trainers available at the moment. Please check back later.</p>
+        )}
+
+        {!isLoadingTrainers && displayTrainers.length > 0 && (
+            <div className="mt-12 grid grid-cols-1 gap-x-8 gap-y-12 md:grid-cols-2 lg:grid-cols-3">
+            {displayTrainers.map((trainer) => (
+                <Card key={trainer.id} className="text-center overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300">
+                <div className="relative h-64 w-full">
+                    <Image
+                    src={trainer.imageUrl || "https://placehold.co/300x300.png"}
+                    alt={trainer.name}
+                    fill
+                    style={{ objectFit: "cover" }}
+                    data-ai-hint="fitness trainer portrait" // Example hint, can be dynamic
+                    />
+                </div>
+                <CardContent className="p-6">
+                    <h4 className="font-headline text-lg font-semibold text-foreground">{trainer.name}</h4>
+                    <p className="text-sm text-primary">{trainer.specialty}</p>
+                </CardContent>
+                </Card>
+            ))}
+            </div>
+        )}
       </div>
     </section>
   );
