@@ -34,7 +34,7 @@ const formSchema = z.object({
 
 export default function SignInPage() {
   const { toast } = useToast();
-  const { signIn, isLoading, role } = useAuth(); // Get role to redirect
+  const { signIn, isLoading } = useAuth(); 
   const router = useRouter();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -53,13 +53,18 @@ export default function SignInPage() {
         description: `Welcome back, ${result.user.name}!`,
       });
       form.reset();
-      // Redirect based on role
-      if (result.user.role === 'admin') {
-        router.push('/admin');
-      } else if (result.user.role === 'trainer') {
-        router.push('/trainer-dashboard');
+      
+      if (result.user.requiresPasswordChange) {
+        router.push('/auth/force-change-password');
       } else {
-        router.push('/member-dashboard');
+        // Redirect based on role
+        if (result.user.role === 'admin') {
+          router.push('/admin');
+        } else if (result.user.role === 'trainer') {
+          router.push('/trainer-dashboard');
+        } else {
+          router.push('/member-dashboard');
+        }
       }
     } else {
       toast({
@@ -110,9 +115,9 @@ export default function SignInPage() {
                     )}
                   />
                   <div className="flex items-center justify-end">
-                    <Link href="#" className="text-sm font-medium text-primary hover:underline">
+                    {/* <Link href="#" className="text-sm font-medium text-primary hover:underline">
                       Forgot password?
-                    </Link>
+                    </Link> */}
                   </div>
                   <Button type="submit" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground" disabled={isLoading || form.formState.isSubmitting}>
                     {isLoading || form.formState.isSubmitting ? "Signing In..." : "Sign In"}

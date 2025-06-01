@@ -3,28 +3,28 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import type { User, Role } from '@prisma/client'; // Use Prisma's User type
+import type { User, Role } from '@prisma/client'; 
 import {
   getCurrentUser as authGetCurrentUser,
   signIn as authSignIn,
   signUp as authSignUp,
   signOut as authSignOut,
-  // isAuthenticated as authIsAuthenticated, // Will use local state
-  // getUserRole as authGetUserRole, // Will use local state
   updateUserName as authUpdateUserName,
   updateUserPassword as authUpdateUserPassword,
+  setPasswordAndClearFlag as authSetPasswordAndClearFlag,
 } from '@/lib/auth';
 
 export interface AuthHook {
   currentUser: User | null;
-  isAuthenticated: boolean; // Derived from currentUser state
-  role: User['role'] | null; // Derived from currentUser state
+  isAuthenticated: boolean; 
+  role: User['role'] | null; 
   signIn: typeof authSignIn;
   signUp: typeof authSignUp;
   signOutAndRedirect: (redirectTo?: string) => void;
   isLoading: boolean;
   updateName: (newName: string) => Promise<{ success: boolean; message: string; updatedUser?: User }>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; message: string }>;
+  completePasswordSetup: (newPassword: string) => Promise<{ success: boolean; message: string; updatedUser?: User }>;
 }
 
 export function useAuth(): AuthHook {
@@ -44,12 +44,10 @@ export function useAuth(): AuthHook {
   }, []);
 
   useEffect(() => {
-    updateUserState(); // Initial check
+    updateUserState(); 
 
     const handleStorageChange = (event: StorageEvent) => {
-      // Listen for changes to our specific session key or general storage events
-      // that might indicate auth state change (e.g. logged out from another tab)
-      if (event.key === 'gymCurrentUserId' || event.key === null) { // event.key is null for localStorage.clear()
+      if (event.key === 'gymCurrentUserId' || event.key === null) { 
         updateUserState();
       }
     };
@@ -67,7 +65,6 @@ export function useAuth(): AuthHook {
       setIsAuthenticated(true);
       setRole(result.user.role);
     } else {
-      // Ensure state reflects sign-in failure
       setCurrentUser(null);
       setIsAuthenticated(false);
       setRole(null);
@@ -79,7 +76,6 @@ export function useAuth(): AuthHook {
   const signUp: typeof authSignUp = async (name, email, password) => {
     setIsLoading(true);
     const result = await authSignUp(name, email, password);
-    // Sign up does not log the user in automatically in this setup
     setIsLoading(false);
     return result;
   };
@@ -97,7 +93,7 @@ export function useAuth(): AuthHook {
     setIsLoading(true);
     const result = await authUpdateUserName(currentUser.id, newName);
     if (result.success && result.updatedUser) {
-      setCurrentUser(result.updatedUser); // Update local state
+      setCurrentUser(result.updatedUser); 
       setRole(result.updatedUser.role);
     }
     setIsLoading(false);
@@ -108,10 +104,22 @@ export function useAuth(): AuthHook {
     if (!currentUser) return { success: false, message: "Not authenticated." };
     setIsLoading(true);
     const result = await authUpdateUserPassword(currentUser.id, currentPassword, newPassword);
-    // Password change doesn't alter the user object structure here, so no setCurrentUser needed unless session is invalidated
     setIsLoading(false);
     return result;
   };
+
+  const completePasswordSetup = async (newPassword: string) => {
+    if (!currentUser) return { success: false, message: "Not authenticated." };
+    setIsLoading(true);
+    const result = await authSetPasswordAndClearFlag(currentUser.id, newPassword);
+    if (result.success && result.updatedUser) {
+      setCurrentUser(result.updatedUser); // Update local state with cleared flag
+      setRole(result.updatedUser.role);
+    }
+    setIsLoading(false);
+    return result;
+  };
+
 
   return {
     currentUser,
@@ -123,5 +131,6 @@ export function useAuth(): AuthHook {
     isLoading,
     updateName,
     changePassword,
+    completePasswordSetup,
   };
 }
